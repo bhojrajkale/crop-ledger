@@ -1,0 +1,16 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["react", "typescript", "unicorn"],
+  "env": { "browser": true, "es2022": true },
+  "ignorePatterns": ["dist", "dev-dist", "node_modules"],
+  "rules": {
+    "eqeqeq": "error",
+    "no-console": ["warn", { "allow": ["warn", "error"] }]
+  },
+  "overrides": [
+    {
+      "files": ["scripts/**"],
+      "rules": { "no-console": "off" }
+    }
+  ]
+}

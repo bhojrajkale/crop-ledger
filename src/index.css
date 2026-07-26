@@ -1,0 +1,143 @@
+@import 'tailwindcss';
+
+/*
+ * Earthy palette: warm paper ground, crop green as the primary action,
+ * terracotta as the secondary, soil browns for neutrals. Deliberately no
+ * blue-grey anywhere, so the app reads as a field tool rather than a generic
+ * finance dashboard.
+ *
+ * Components never hardcode a colour — they use bg-[var(--surface)] and
+ * friends, so dark mode is a token swap and can't be forgotten in one corner.
+ */
+:root {
+  --bg: #faf7f0;
+  --surface: #ffffff;
+  --surface-sunken: #f3eee3;
+  --surface-glass: rgb(250 247 240 / 0.82);
+
+  --ink: #23201a;
+  --muted: #6d6455;
+  --faint: #9a9081;
+
+  --hairline: #e8e1d3;
+  --divider: #ded5c3;
+
+  --primary: #4a7c3f;
+  --primary-ink: #ffffff;
+  --primary-tint: #e9f1e4;
+  --primary-border: #c3d9ba;
+
+  --accent: #b4552d;
+  --accent-tint: #fbeae1;
+
+  --positive: #3d7a4e;
+  --positive-tint: #e6f2e8;
+  --negative: #b23c2c;
+  --negative-tint: #fbe8e5;
+  --warning: #a67420;
+  --warning-tint: #fbf1dc;
+
+  --disabled: #c4bcac;
+  --focus: #4a7c3f;
+
+  /* Category accents — warm, distinguishable, and ordered so adjacent
+     categories in a list never sit on neighbouring hues. */
+  --cat-seeds: #5d8c3f;
+  --cat-fertilizer: #2f7d72;
+  --cat-labour: #b4552d;
+  --cat-machinery: #7a5ea3;
+  --cat-irrigation: #2b6f9c;
+  --cat-transport: #a67420;
+  --cat-land: #8a6242;
+  --cat-custom: #7a7264;
+}
+
+[data-theme='dark'] {
+  --bg: #16150f;
+  --surface: #211f18;
+  --surface-sunken: #1b1a13;
+  --surface-glass: rgb(22 21 15 / 0.82);
+
+  --ink: #f2ede2;
+  --muted: #a89e8c;
+  --faint: #7d7466;
+
+  --hairline: #322f25;
+  --divider: #3d3a2e;
+
+  --primary: #7fb46a;
+  --primary-ink: #14210f;
+  --primary-tint: #23301c;
+  --primary-border: #3c5232;
+
+  --accent: #e0895e;
+  --accent-tint: #33211a;
+
+  --positive: #6fb682;
+  --positive-tint: #1d2f22;
+  --negative: #e3796a;
+  --negative-tint: #331f1c;
+  --warning: #d9a955;
+  --warning-tint: #302615;
+
+  --disabled: #4a4638;
+  --focus: #7fb46a;
+
+  --cat-seeds: #8cbb6a;
+  --cat-fertilizer: #5caea1;
+  --cat-labour: #e0895e;
+  --cat-machinery: #ac93d4;
+  --cat-irrigation: #62a5cf;
+  --cat-transport: #d9a955;
+  --cat-land: #bd9270;
+  --cat-custom: #a9a091;
+}
+
+@theme inline {
+  --font-sans:
+    ui-rounded, 'SF Pro Rounded', system-ui, -apple-system, 'Segoe UI', Roboto,
+    sans-serif;
+  /* Tabular figures so columns of money line up digit-for-digit. */
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, monospace;
+}
+
+html {
+  background-color: var(--bg);
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background-color: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  /* Used outdoors on a phone — keep text from shrinking on rotate. */
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior-y: none;
+}
+
+/* Amounts always use tabular figures so totals and rows align. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

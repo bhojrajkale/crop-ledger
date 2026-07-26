@@ -1,0 +1,60 @@
+import { describe, expect, it } from 'vitest'
+import { formatDate, formatLongDate, initials, pluralize, todayISO } from './format'
+
+describe('todayISO', () => {
+  it('returns a yyyy-mm-dd string', () => {
+    expect(todayISO()).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+  })
+
+  it('uses the local calendar date, not UTC', () => {
+    // An evening entry in IST must not be filed under the previous day.
+    const now = new Date()
+    const expected = [
+      now.getFullYear(),
+      String(now.getMonth() + 1).padStart(2, '0'),
+      String(now.getDate()).padStart(2, '0'),
+    ].join('-')
+    expect(todayISO()).toBe(expected)
+  })
+})
+
+describe('formatDate', () => {
+  it('formats a date without shifting it across a timezone boundary', () => {
+    expect(formatDate('2026-06-01')).toBe('1 Jun')
+  })
+
+  it('returns the input unchanged when it is not a date', () => {
+    expect(formatDate('not-a-date')).toBe('not-a-date')
+  })
+})
+
+describe('formatLongDate', () => {
+  it('includes the year', () => {
+    expect(formatLongDate('2026-06-01')).toBe('1 Jun 2026')
+  })
+})
+
+describe('initials', () => {
+  it('takes the first letter of the first two words', () => {
+    expect(initials('Anil Kale')).toBe('AK')
+    expect(initials('Bhau')).toBe('B')
+    expect(initials('  ram  shankar  patil ')).toBe('RS')
+  })
+
+  it('falls back rather than rendering an empty avatar', () => {
+    expect(initials('')).toBe('?')
+    expect(initials('   ')).toBe('?')
+  })
+})
+
+describe('pluralize', () => {
+  it('picks the right form', () => {
+    expect(pluralize(1, 'member')).toBe('1 member')
+    expect(pluralize(3, 'member')).toBe('3 members')
+    expect(pluralize(0, 'member')).toBe('0 members')
+  })
+
+  it('accepts an irregular plural', () => {
+    expect(pluralize(2, 'entry', 'entries')).toBe('2 entries')
+  })
+})
