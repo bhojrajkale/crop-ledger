@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie'
-import type { Crop, Expense, Sale } from '../domain/types'
+import type { Crop, Expense, Receipt, Sale } from '../domain/types'
 import { migrateExpense } from './migrate'
 
 /**
@@ -16,6 +16,7 @@ class CropLedgerDB extends Dexie {
   crops!: EntityTable<Crop, 'id'>
   expenses!: EntityTable<Expense, 'id'>
   sales!: EntityTable<Sale, 'id'>
+  receipts!: EntityTable<Receipt, 'id'>
 
   constructor() {
     super('crop-ledger')
@@ -46,6 +47,15 @@ class CropLedgerDB extends Dexie {
             delete expense.paidBy
           })
       )
+    // v3: receipt photos, in their own table so bulk expense reads never pull
+    // image data. Purely additive — no upgrade function needed, and existing
+    // expenses simply have no receiptCount.
+    this.version(3).stores({
+      crops: 'id, name, season, startDate, archived',
+      expenses: 'id, cropId, date, category',
+      sales: 'id, cropId, date, receivedBy',
+      receipts: 'id, expenseId',
+    })
   }
 }
 

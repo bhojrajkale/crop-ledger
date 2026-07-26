@@ -59,10 +59,14 @@ export function SettingsPage() {
       result.ok
         ? {
             ok: true,
-            text: `Restored ${pluralize(result.crops, 'crop')} and ${pluralize(
+            text: `Restored ${pluralize(result.crops, 'crop')}, ${pluralize(
               result.expenses,
               'expense'
-            )}.`,
+            )}${
+              result.receipts > 0
+                ? ` and ${pluralize(result.receipts, 'photo')}`
+                : ''
+            }.`,
           }
         : { ok: false, text: result.error }
     )
@@ -105,9 +109,10 @@ export function SettingsPage() {
       <SectionTitle>Export</SectionTitle>
       <Card className="mb-6">
         <p className="text-sm text-[var(--muted)] mb-3">
-          Saves {pluralize(crops.length, 'crop')} and all their expenses as a
-          JSON file. Keep it somewhere safe — email it to yourself, or drop it
-          in cloud storage.
+          Saves {pluralize(crops.length, 'crop')}, all their expenses and any
+          receipt photos as a JSON file. Keep it somewhere safe — email it to
+          yourself, or drop it in cloud storage. Photos make the file much
+          larger, so it may take a moment.
         </p>
         <Button variant="primary" onClick={() => void onExport()}>
           Download backup

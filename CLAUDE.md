@@ -101,6 +101,36 @@ that is still unused. A sale is arithmetically an inverted expense: the member
 who collected the cash is debited the total, every member credited an equal
 share. Revenue is therefore a form and a screen, not a change to the engine.
 
+## Receipt photos never travel with the expense row
+
+`Expense.receiptCount` is a number, nothing more. The images live in their own
+`receipts` table keyed by `expenseId` and are fetched **only when someone opens
+them** — from the expense form, or by tapping the 📷 badge in the list.
+
+This split is the whole point: `listExpenses()` runs on every render of every
+screen, and putting image data on those rows would drag megabytes through each
+one. If you ever need "does this have a photo", read the count; never fetch
+blobs to answer it.
+
+Other invariants here:
+
+- Images are stored as **Blobs**, not base64 strings — a third smaller, and no
+  giant string sitting in the JS heap. `blobToDataUrl` converts only at the
+  backup boundary, and is built on `atob`/`btoa` rather than `FileReader` so it
+  works in Node and stays directly testable.
+- Everything goes through `compressImage()` first. Phone cameras produce 3–12 MB
+  files and the quota is shared with the ledger itself. `MAX_EDGE` is
+  deliberately 1600, not thumbnail-sized: the numbers on a bill have to stay
+  readable.
+- **Deleting an expense or a crop must delete its receipts in the same
+  transaction.** Orphaned photos are invisible and unreclaimable — they just
+  consume quota forever. `deleteExpense` and `deleteCrop` both do this.
+- The expense form stages photos in component state and writes them only on
+  save, so cancelling never leaves orphans, and a brand-new expense can collect
+  photos before its row exists (hence the `draftId`).
+- Object URLs must be revoked — use `useObjectUrl`. A leak here pins every photo
+  ever displayed in memory, which on a phone gets the tab killed.
+
 ## Storage is device-local and has no server copy
 
 There is no cloud backup and no sync. Consequences that keep biting if
@@ -117,6 +147,7 @@ forgotten:
 
 The `sales` table exists in Dexie schema version 1 despite being unused, so
 adding revenue later needs no migration on devices that already hold data.
+Version 3 added `receipts`, purely additive.
 
 **Never edit an existing `version(n).stores({...})` block** — devices holding
 data upgrade by replaying the versions they have not seen, so rewriting an old

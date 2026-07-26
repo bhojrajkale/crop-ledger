@@ -11,6 +11,8 @@ import { formatINR } from '../domain/money'
 import { resolveSplit } from '../domain/split'
 import { computeTotals } from '../domain/settlement'
 import { amountOutstanding, isPending } from '../domain/payments'
+import { ReceiptViewer } from '../components/expenses/ReceiptViewer'
+import type { Receipt } from '../domain/types'
 import { formatDate } from '../lib/format'
 import type { Expense } from '../domain/types'
 
@@ -19,10 +21,12 @@ export function ExpensesPage() {
   const crops = useLedgerStore((s) => s.crops)
   const expenses = useLedgerStore((s) => s.expenses)
   const deleteExpense = useLedgerStore((s) => s.deleteExpense)
+  const listReceipts = useLedgerStore((s) => s.listReceipts)
 
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState<Expense | null>(null)
   const [removing, setRemoving] = useState<Expense | null>(null)
+  const [viewing, setViewing] = useState<Receipt[] | null>(null)
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
   const [pendingOnly, setPendingOnly] = useState(false)
@@ -169,6 +173,12 @@ export function ExpensesPage() {
                     memberName={memberName}
                     onEdit={() => setEditing(expense)}
                     onDelete={() => setRemoving(expense)}
+                    onViewReceipts={async () => {
+                      // Images are fetched only on tap, never as part of the
+                      // list read that runs on every render.
+                      const found = await listReceipts(expense.id)
+                      if (found.length > 0) setViewing(found)
+                    }}
                   />
                 </li>
               ))}
@@ -186,6 +196,10 @@ export function ExpensesPage() {
         crop={crop}
         {...(editing ? { editExpense: editing } : {})}
       />
+
+      {viewing ? (
+        <ReceiptViewer receipts={viewing} onClose={() => setViewing(null)} />
+      ) : null}
 
       <Modal
         open={removing !== null}
@@ -225,11 +239,13 @@ function ExpenseRow({
   memberName,
   onEdit,
   onDelete,
+  onViewReceipts,
 }: {
   expense: Expense
   memberName: (id: string) => string
   onEdit: () => void
   onDelete: () => void
+  onViewReceipts: () => void
 }) {
   const category = getCategory(expense.category)
   const shares = resolveSplit(expense)
@@ -298,6 +314,16 @@ function ExpenseRow({
           <span className="text-xs text-[var(--faint)]">
             {formatDate(expense.date)}
           </span>
+          {expense.receiptCount ? (
+            <button
+              type="button"
+              onClick={onViewReceipts}
+              className="text-xs text-[var(--primary)] font-medium active:scale-95 transition-transform"
+            >
+              📷 {expense.receiptCount > 1 ? expense.receiptCount : ''}
+              {expense.receiptCount > 1 ? ' photos' : 'Receipt'}
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={onEdit}

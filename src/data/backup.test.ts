@@ -23,20 +23,27 @@ const expense: Expense = {
   createdAt: '2026-06-02T00:00:00.000Z',
 }
 
-const validFile = () =>
-  JSON.stringify(buildBackup({ crops: [crop], expenses: [expense], sales: [] }))
+const validFile = async () =>
+  JSON.stringify(
+    await buildBackup({
+      crops: [crop],
+      expenses: [expense],
+      sales: [],
+      receipts: [],
+    })
+  )
 
 describe('buildBackup', () => {
-  it('stamps the app name and version so imports can be checked', () => {
-    const backup = buildBackup({ crops: [], expenses: [], sales: [] })
+  it('stamps the app name and version so imports can be checked', async () => {
+    const backup = await buildBackup({ crops: [], expenses: [], sales: [], receipts: [] })
     expect(backup.app).toBe('crop-ledger')
-    expect(backup.version).toBe(1)
+    expect(backup.version).toBe(2)
     expect(backup.exportedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/)
   })
 })
 
 describe('backupFilename', () => {
-  it('dates the file so successive backups do not overwrite each other', () => {
+  it('dates the file so successive backups do not overwrite each other', async () => {
     expect(backupFilename(new Date('2026-07-26T10:00:00Z'))).toBe(
       'crop-ledger-backup-2026-07-26.json'
     )
@@ -44,8 +51,8 @@ describe('backupFilename', () => {
 })
 
 describe('parseBackup', () => {
-  it('round-trips a file it produced', () => {
-    const result = parseBackup(validFile())
+  it('round-trips a file it produced', async () => {
+    const result = await parseBackup(await validFile())
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.crops).toBe(1)
@@ -54,7 +61,7 @@ describe('parseBackup', () => {
     expect(result.payload.expenses[0]).toEqual(expense)
   })
 
-  it('defaults sales to empty for a backup taken before revenue existed', () => {
+  it('defaults sales to empty for a backup taken before revenue existed', async () => {
     const withoutSales = JSON.stringify({
       app: 'crop-ledger',
       version: 1,
@@ -62,30 +69,30 @@ describe('parseBackup', () => {
       crops: [crop],
       expenses: [expense],
     })
-    const result = parseBackup(withoutSales)
+    const result = await parseBackup(withoutSales)
     expect(result.ok).toBe(true)
     if (result.ok) expect(result.payload.sales).toEqual([])
   })
 
-  it('rejects malformed JSON', () => {
-    const result = parseBackup('{ not json')
+  it('rejects malformed JSON', async () => {
+    const result = await parseBackup('{ not json')
     expect(result).toEqual({ ok: false, error: "That file isn't valid JSON." })
   })
 
-  it('rejects a file from a different app', () => {
-    const result = parseBackup(JSON.stringify({ app: 'something-else' }))
+  it('rejects a file from a different app', async () => {
+    const result = await parseBackup(JSON.stringify({ app: 'something-else' }))
     expect(result.ok).toBe(false)
   })
 
-  it('rejects a backup from a future version rather than guessing', () => {
-    const result = parseBackup(
+  it('rejects a backup from a future version rather than guessing', async () => {
+    const result = await parseBackup(
       JSON.stringify({ app: 'crop-ledger', version: 99, crops: [], expenses: [] })
     )
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.error).toMatch(/newer version/)
   })
 
-  it('refuses the whole file when any record is damaged', () => {
+  it('refuses the whole file when any record is damaged', async () => {
     // Partially importing would wipe good data and replace it with less.
     const damaged = JSON.stringify({
       app: 'crop-ledger',
@@ -93,13 +100,13 @@ describe('parseBackup', () => {
       crops: [crop, { id: 'broken' }],
       expenses: [expense],
     })
-    const result = parseBackup(damaged)
+    const result = await parseBackup(damaged)
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.error).toMatch(/damaged/)
   })
 
-  it('rejects a file missing its collections', () => {
-    const result = parseBackup(JSON.stringify({ app: 'crop-ledger', version: 1 }))
+  it('rejects a file missing its collections', async () => {
+    const result = await parseBackup(JSON.stringify({ app: 'crop-ledger', version: 1 }))
     expect(result.ok).toBe(false)
   })
 })
@@ -125,12 +132,12 @@ describe('parseBackup with pre-credit backups', () => {
     ],
   })
 
-  it('accepts a backup written before payments existed', () => {
-    expect(parseBackup(legacyFile).ok).toBe(true)
+  it('accepts a backup written before payments existed', async () => {
+    expect((await parseBackup(legacyFile)).ok).toBe(true)
   })
 
-  it('converts the old payer into a full payment on the way in', () => {
-    const result = parseBackup(legacyFile)
+  it('converts the old payer into a full payment on the way in', async () => {
+    const result = await parseBackup(legacyFile)
     expect(result.ok).toBe(true)
     if (!result.ok) return
     const restored = result.payload.expenses[0]!
@@ -138,5 +145,98 @@ describe('parseBackup with pre-credit backups', () => {
       { id: 'old1-legacy', memberId: 'a', amount: 90_000, paidAt: '2026-06-01' },
     ])
     expect('paidBy' in restored).toBe(false)
+  })
+})
+
+describe('receipts in backups', () => {
+  const jpeg = () =>
+    // Not a real JPEG, but a distinctive byte sequence is enough to prove the
+    // bytes survive the base64 round trip unchanged.
+    new Blob([new Uint8Array([0xff, 0xd8, 0xff, 0x00, 0x10, 0x7f, 0x80, 0xfe])], {
+      type: 'image/jpeg',
+    })
+
+  const receipt = {
+    id: 'r1',
+    expenseId: 'e1',
+    image: jpeg(),
+    width: 1200,
+    height: 1600,
+    addedAt: '2026-06-02T10:00:00.000Z',
+  }
+
+  const fileWithReceipt = async () =>
+    JSON.stringify(
+      await buildBackup({
+        crops: [crop],
+        expenses: [expense],
+        sales: [],
+        receipts: [receipt],
+      })
+    )
+
+  it('serialises a photo as a data URL', async () => {
+    const backup = await buildBackup({
+      crops: [],
+      expenses: [],
+      sales: [],
+      receipts: [receipt],
+    })
+    expect(backup.receipts[0]!.image).toMatch(/^data:image\/jpeg;base64,/)
+  })
+
+  it('round-trips the exact bytes', async () => {
+    const result = await parseBackup(await fileWithReceipt())
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+
+    const restored = result.payload.receipts[0]!
+    expect(restored.image.type).toBe('image/jpeg')
+    const bytes = new Uint8Array(await restored.image.arrayBuffer())
+    expect([...bytes]).toEqual([0xff, 0xd8, 0xff, 0x00, 0x10, 0x7f, 0x80, 0xfe])
+  })
+
+  it('keeps the metadata alongside the image', async () => {
+    const result = await parseBackup(await fileWithReceipt())
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    const restored = result.payload.receipts[0]!
+    expect(restored.id).toBe('r1')
+    expect(restored.expenseId).toBe('e1')
+    expect(restored.width).toBe(1200)
+    expect(restored.height).toBe(1600)
+  })
+
+  it('reports how many photos were restored', async () => {
+    const result = await parseBackup(await fileWithReceipt())
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.receipts).toBe(1)
+  })
+
+  it('treats a backup with no receipts key as having none', async () => {
+    const result = await parseBackup(
+      JSON.stringify({
+        app: 'crop-ledger',
+        version: 1,
+        crops: [crop],
+        expenses: [expense],
+      })
+    )
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.payload.receipts).toEqual([])
+  })
+
+  it('refuses the whole file when a photo is damaged', async () => {
+    const result = await parseBackup(
+      JSON.stringify({
+        app: 'crop-ledger',
+        version: 2,
+        crops: [crop],
+        expenses: [expense],
+        receipts: [{ id: 'r1', expenseId: 'e1', image: 'not-a-data-url' }],
+      })
+    )
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toMatch(/damaged photos/)
   })
 })

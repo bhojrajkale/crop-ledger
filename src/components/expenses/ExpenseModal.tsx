@@ -9,7 +9,15 @@ import { formatAmount, formatINR, parseRupees } from '../../domain/money'
 import { splitEqually, validateCustomSplit } from '../../domain/split'
 import { newId } from '../../lib/id'
 import { todayISO } from '../../lib/format'
-import type { CategoryId, Crop, Expense, SplitAmount } from '../../domain/types'
+import { ReceiptPicker } from './ReceiptPicker'
+import { ReceiptViewer } from './ReceiptViewer'
+import type {
+  CategoryId,
+  Crop,
+  Expense,
+  Receipt,
+  SplitAmount,
+} from '../../domain/types'
 
 type SplitMode = 'equal' | 'custom'
 /** How much of this expense has been settled at the moment of entry. */
@@ -27,6 +35,8 @@ export function ExpenseModal({
   editExpense?: Expense
 }) {
   const saveExpense = useLedgerStore((s) => s.saveExpense)
+  const listReceipts = useLedgerStore((s) => s.listReceipts)
+  const syncReceipts = useLedgerStore((s) => s.syncReceipts)
   const members = crop.members
 
   const [amountText, setAmountText] = useState('')
@@ -43,6 +53,16 @@ export function ExpenseModal({
   const [customText, setCustomText] = useState<Record<string, string>>({})
   const [error, setError] = useState<string>()
   const [saving, setSaving] = useState(false)
+
+  // Receipts are staged in component state and only written on save, so
+  // cancelling out of the form cannot leave orphaned photos in storage — and
+  // a brand-new expense can collect photos before its row exists.
+  const [receipts, setReceipts] = useState<Receipt[]>([])
+  const [addedIds, setAddedIds] = useState<string[]>([])
+  const [removedIds, setRemovedIds] = useState<string[]>([])
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null)
+  // A new expense needs an id up front so its photos can be keyed to it.
+  const [draftId] = useState(() => newId())
 
   useEffect(() => {
     if (!open) return
@@ -84,7 +104,15 @@ export function ExpenseModal({
       setPaidBy(allIds[0] ?? '')
     }
     setError(undefined)
-  }, [open, editExpense, members])
+    setAddedIds([])
+    setRemovedIds([])
+    setViewerIndex(null)
+    setReceipts([])
+    if (editExpense?.receiptCount) {
+      // Fetched only when the form opens, never as part of the expense list.
+      void listReceipts(editExpense.id).then(setReceipts)
+    }
+  }, [open, editExpense, members, listReceipts])
 
   const amount = parseRupees(amountText)
   const partAmount = parseRupees(paidText)
@@ -187,7 +215,7 @@ export function ExpenseModal({
     try {
       const expense: Expense = {
         ...(editExpense ?? {
-          id: newId(),
+          id: draftId,
           cropId: crop.id,
           payments: [],
           createdAt: new Date().toISOString(),
@@ -211,7 +239,16 @@ export function ExpenseModal({
       if (splitMode !== 'custom') delete expense.splitAmounts
       if (!owedTo.trim()) delete expense.owedTo
 
+      const added = receipts.filter((r) => addedIds.includes(r.id))
+      expense.receiptCount = receipts.length
+      if (receipts.length === 0) delete expense.receiptCount
+
       await saveExpense(expense)
+      // Photos are written after the expense row exists, so a receipt can
+      // never reference an expense that failed to save.
+      if (added.length > 0 || removedIds.length > 0) {
+        await syncReceipts(expense, added, removedIds)
+      }
       onOpenChange(false)
     } catch {
       setError('Could not save. Your browser may be out of storage space.')
@@ -492,7 +529,35 @@ export function ExpenseModal({
             onChange={(e) => setNotes(e.target.value)}
           />
         </div>
+
+        <ReceiptPicker
+          expenseId={editExpense?.id ?? draftId}
+          receipts={receipts}
+          onAdd={(added) => {
+            setReceipts((current) => [...current, ...added])
+            setAddedIds((current) => [...current, ...added.map((r) => r.id)])
+          }}
+          onRemove={(id) => {
+            setReceipts((current) => current.filter((r) => r.id !== id))
+            // Only photos already in storage need deleting; one added and
+            // removed in the same session was never written.
+            if (addedIds.includes(id)) {
+              setAddedIds((current) => current.filter((x) => x !== id))
+            } else {
+              setRemovedIds((current) => [...current, id])
+            }
+          }}
+          onView={setViewerIndex}
+        />
       </div>
+
+      {viewerIndex !== null ? (
+        <ReceiptViewer
+          receipts={receipts}
+          startIndex={viewerIndex}
+          onClose={() => setViewerIndex(null)}
+        />
+      ) : null}
     </Modal>
   )
 }

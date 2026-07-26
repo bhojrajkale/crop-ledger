@@ -81,6 +81,12 @@ export interface Expense {
   /** Who the unpaid balance is owed to — a shop, dealer, labour contractor. */
   owedTo?: string
   /**
+   * How many receipt photos are attached. Only a count lives here: the images
+   * themselves are in a separate store, because every screen that lists
+   * expenses reads these rows and must never drag megabytes of photo along.
+   */
+  receiptCount?: number
+  /**
    * Members the cost belongs to. Deliberately independent of who paid, which
    * is what lets one mechanism cover every case the app must support:
    *   - paid by one, shared by several  → several ids here
@@ -95,6 +101,22 @@ export interface Expense {
   splitAmounts?: SplitAmount[]
 
   createdAt: string // ISO timestamp
+}
+
+/**
+ * A photo of a bill, stored in its own table keyed by `expenseId` rather than
+ * on the expense row. Expenses are read in bulk on every list render; photos
+ * are read only when someone actually opens one, so keeping them apart is
+ * what stops a season of receipts from making the app crawl.
+ */
+export interface Receipt {
+  id: string
+  expenseId: string
+  /** JPEG, already scaled down by compressImage(). */
+  image: Blob
+  width: number
+  height: number
+  addedAt: string // ISO timestamp
 }
 
 /**

@@ -21,11 +21,14 @@ app — all data lives on your device, with no account and no server.
   note of who it is owed to. It counts towards the crop's total straight away
   and stays in a pending list until cleared. Payments can be recorded later, in
   instalments, by any member.
+- **Receipts** — attach photos of bills to an expense, several if a bill runs
+  to more than one page. They are shrunk before saving and open full screen
+  from the expense list.
 - **Summary** — total spent, per-head share, what is still to pay and to whom,
   what each person paid versus their share, spend by category, and the shortest
   list of payments that settles everyone up.
-- **Backup** — export everything to a JSON file and restore it on another
-  device.
+- **Backup** — export everything, receipt photos included, to a JSON file and
+  restore it on another device.
 
 Money owed to a shop is kept separate from money members owe each other, so
 the settlement only ever covers what has actually changed hands.

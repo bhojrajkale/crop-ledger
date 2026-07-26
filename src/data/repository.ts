@@ -1,4 +1,4 @@
-import type { Crop, Expense, Sale } from '../domain/types'
+import type { Crop, Expense, Receipt, Sale } from '../domain/types'
 import { db } from './db'
 
 /**
@@ -18,6 +18,11 @@ export interface CropRepository {
 
   listSales(cropId: string): Promise<Sale[]>
 
+  /** Photos for one expense. Only ever read when someone opens them. */
+  listReceipts(expenseId: string): Promise<Receipt[]>
+  saveReceipt(receipt: Receipt): Promise<void>
+  deleteReceipt(receiptId: string): Promise<void>
+
   /** Whole-database read/replace, used by the JSON backup file. */
   exportAll(): Promise<BackupPayload>
   replaceAll(payload: BackupPayload): Promise<void>
@@ -27,6 +32,7 @@ export interface BackupPayload {
   crops: Crop[]
   expenses: Expense[]
   sales: Sale[]
+  receipts: Receipt[]
 }
 
 export const dexieRepository: CropRepository = {
@@ -41,12 +47,25 @@ export const dexieRepository: CropRepository = {
 
   async deleteCrop(cropId) {
     // One transaction so a crop can never be left without its expenses or
-    // vice versa if the tab is closed mid-delete.
-    await db.transaction('rw', db.crops, db.expenses, db.sales, async () => {
-      await db.expenses.where('cropId').equals(cropId).delete()
-      await db.sales.where('cropId').equals(cropId).delete()
-      await db.crops.delete(cropId)
-    })
+    // vice versa if the tab is closed mid-delete. Receipts go too — orphaned
+    // photos would sit in the quota forever with nothing pointing at them.
+    await db.transaction(
+      'rw',
+      db.crops,
+      db.expenses,
+      db.sales,
+      db.receipts,
+      async () => {
+        const expenseIds = await db.expenses
+          .where('cropId')
+          .equals(cropId)
+          .primaryKeys()
+        await db.receipts.where('expenseId').anyOf(expenseIds).delete()
+        await db.expenses.where('cropId').equals(cropId).delete()
+        await db.sales.where('cropId').equals(cropId).delete()
+        await db.crops.delete(cropId)
+      }
+    )
   },
 
   async listExpenses(cropId) {
@@ -62,7 +81,26 @@ export const dexieRepository: CropRepository = {
   },
 
   async deleteExpense(expenseId) {
-    await db.expenses.delete(expenseId)
+    await db.transaction('rw', db.expenses, db.receipts, async () => {
+      await db.receipts.where('expenseId').equals(expenseId).delete()
+      await db.expenses.delete(expenseId)
+    })
+  },
+
+  async listReceipts(expenseId) {
+    const receipts = await db.receipts
+      .where('expenseId')
+      .equals(expenseId)
+      .toArray()
+    return receipts.sort((a, b) => a.addedAt.localeCompare(b.addedAt))
+  },
+
+  async saveReceipt(receipt) {
+    await db.receipts.put(receipt)
+  },
+
+  async deleteReceipt(receiptId) {
+    await db.receipts.delete(receiptId)
   },
 
   async listSales(cropId) {
@@ -70,20 +108,34 @@ export const dexieRepository: CropRepository = {
   },
 
   async exportAll() {
-    const [crops, expenses, sales] = await Promise.all([
+    const [crops, expenses, sales, receipts] = await Promise.all([
       db.crops.toArray(),
       db.expenses.toArray(),
       db.sales.toArray(),
+      db.receipts.toArray(),
     ])
-    return { crops, expenses, sales }
+    return { crops, expenses, sales, receipts }
   },
 
   async replaceAll(payload) {
-    await db.transaction('rw', db.crops, db.expenses, db.sales, async () => {
-      await Promise.all([db.crops.clear(), db.expenses.clear(), db.sales.clear()])
-      await db.crops.bulkPut(payload.crops)
-      await db.expenses.bulkPut(payload.expenses)
-      await db.sales.bulkPut(payload.sales)
-    })
+    await db.transaction(
+      'rw',
+      db.crops,
+      db.expenses,
+      db.sales,
+      db.receipts,
+      async () => {
+        await Promise.all([
+          db.crops.clear(),
+          db.expenses.clear(),
+          db.sales.clear(),
+          db.receipts.clear(),
+        ])
+        await db.crops.bulkPut(payload.crops)
+        await db.expenses.bulkPut(payload.expenses)
+        await db.sales.bulkPut(payload.sales)
+        await db.receipts.bulkPut(payload.receipts)
+      }
+    )
   },
 }

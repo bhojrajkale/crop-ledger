@@ -1,21 +1,39 @@
-import type { Crop, Expense, Sale } from '../domain/types'
+import type { Crop, Expense, Receipt, Sale } from '../domain/types'
 import type { BackupPayload } from './repository'
 import { migrateExpense } from './migrate'
+import { blobToDataUrl, dataUrlToBlob } from '../lib/image'
 
-export const BACKUP_VERSION = 1
+// v2 added receipt photos. Version 1 files still import — only a *newer*
+// version than we understand is refused.
+export const BACKUP_VERSION = 2
 
-export interface BackupFile extends BackupPayload {
+/** A receipt as it travels in JSON: the blob becomes a base64 data URL. */
+interface SerialisedReceipt extends Omit<Receipt, 'image'> {
+  image: string
+}
+
+export interface BackupFile extends Omit<BackupPayload, 'receipts'> {
   app: 'crop-ledger'
   version: number
   exportedAt: string
+  receipts: SerialisedReceipt[]
 }
 
-export function buildBackup(payload: BackupPayload): BackupFile {
+export async function buildBackup(payload: BackupPayload): Promise<BackupFile> {
+  const receipts = await Promise.all(
+    payload.receipts.map(async (receipt) => ({
+      ...receipt,
+      image: await blobToDataUrl(receipt.image),
+    }))
+  )
   return {
     app: 'crop-ledger',
     version: BACKUP_VERSION,
     exportedAt: new Date().toISOString(),
-    ...payload,
+    crops: payload.crops,
+    expenses: payload.expenses,
+    sales: payload.sales,
+    receipts,
   }
 }
 
@@ -24,7 +42,13 @@ export function backupFilename(now = new Date()): string {
 }
 
 export type ParseResult =
-  | { ok: true; payload: BackupPayload; crops: number; expenses: number }
+  | {
+      ok: true
+      payload: BackupPayload
+      crops: number
+      expenses: number
+      receipts: number
+    }
   | { ok: false; error: string }
 
 const isObject = (v: unknown): v is Record<string, unknown> =>
@@ -58,6 +82,16 @@ function isExpense(value: unknown): value is Expense {
   )
 }
 
+function isSerialisedReceipt(value: unknown): value is SerialisedReceipt {
+  return (
+    isObject(value) &&
+    isString(value.id) &&
+    isString(value.expenseId) &&
+    isString(value.image) &&
+    value.image.startsWith('data:')
+  )
+}
+
 function isSale(value: unknown): value is Sale {
   return (
     isObject(value) &&
@@ -73,7 +107,7 @@ function isSale(value: unknown): value is Sale {
  * halfway in would destroy the only copy of the data — this refuses the whole
  * file instead of partially applying it.
  */
-export function parseBackup(text: string): ParseResult {
+export async function parseBackup(text: string): Promise<ParseResult> {
   let data: unknown
   try {
     data = JSON.parse(text)
@@ -115,14 +149,39 @@ export function parseBackup(text: string): ParseResult {
     }
   }
 
+  const rawReceipts = Array.isArray(data.receipts) ? data.receipts : []
+  const serialised = rawReceipts.filter(isSerialisedReceipt)
+  if (serialised.length !== rawReceipts.length) {
+    return {
+      ok: false,
+      error: 'That backup contains damaged photos, so it was not imported.',
+    }
+  }
+
+  let receipts: Receipt[]
+  try {
+    receipts = await Promise.all(
+      serialised.map(async (receipt) => ({
+        ...receipt,
+        image: await dataUrlToBlob(receipt.image),
+      }))
+    )
+  } catch {
+    return {
+      ok: false,
+      error: 'The photos in that backup could not be read, so nothing was imported.',
+    }
+  }
+
   return {
     ok: true,
     // Normalise on the way in, so a backup taken before credit tracking
     // existed restores as ordinary fully-paid expenses rather than landing
     // in the database in a shape the rest of the app no longer understands.
-    payload: { crops, expenses: expenses.map(migrateExpense), sales },
+    payload: { crops, expenses: expenses.map(migrateExpense), sales, receipts },
     crops: crops.length,
     expenses: expenses.length,
+    receipts: receipts.length,
   }
 }
 

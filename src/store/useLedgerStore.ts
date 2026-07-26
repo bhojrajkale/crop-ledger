@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Crop, Expense, Member, Payment } from '../domain/types'
+import type { Crop, Expense, Member, Payment, Receipt } from '../domain/types'
 import { dexieRepository, type CropRepository } from '../data/repository'
 import { buildBackup, parseBackup, type ParseResult } from '../data/backup'
 import { applyPayment, removePayment } from '../domain/payments'
@@ -32,7 +32,19 @@ interface LedgerState {
   /** Undoes a recorded payment, putting the amount back on credit. */
   undoPayment: (expenseId: string, paymentId: string) => Promise<void>
 
-  exportBackup: () => Promise<ReturnType<typeof buildBackup>>
+  listReceipts: (expenseId: string) => Promise<Receipt[]>
+  /**
+   * Applies the receipt changes made in the expense form, then stamps the
+   * resulting count onto the expense so lists can show a badge without
+   * touching image data.
+   */
+  syncReceipts: (
+    expense: Expense,
+    added: Receipt[],
+    removedIds: string[]
+  ) => Promise<void>
+
+  exportBackup: () => Promise<Awaited<ReturnType<typeof buildBackup>>>
   importBackup: (text: string) => Promise<ParseResult>
 }
 
@@ -151,12 +163,27 @@ export const useLedgerStore = create<LedgerState>((set, get) => ({
     await get().saveExpense(removePayment(expense, paymentId))
   },
 
+  async listReceipts(expenseId) {
+    return repo.listReceipts(expenseId)
+  },
+
+  async syncReceipts(expense, added, removedIds) {
+    for (const id of removedIds) await repo.deleteReceipt(id)
+    for (const receipt of added) await repo.saveReceipt(receipt)
+
+    const count = (await repo.listReceipts(expense.id)).length
+    const current = get().expenses.find((e) => e.id === expense.id) ?? expense
+    const updated: Expense = { ...current, receiptCount: count }
+    if (count === 0) delete updated.receiptCount
+    await get().saveExpense(updated)
+  },
+
   async exportBackup() {
     return buildBackup(await repo.exportAll())
   },
 
   async importBackup(text) {
-    const result = parseBackup(text)
+    const result = await parseBackup(text)
     if (!result.ok) return result
     try {
       await repo.replaceAll(result.payload)
