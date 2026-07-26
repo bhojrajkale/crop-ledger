@@ -27,6 +27,53 @@ export function splitEqually(
 }
 
 /**
+ * Distributes `total` across `weights` in proportion to those weights, using
+ * the largest-remainder method so the result sums to exactly `total`.
+ *
+ * This is how a part-payment is attributed: paying half of a bill covers half
+ * of everybody's share, not one person's share in full. Naively scaling each
+ * share by (paid / amount) and rounding would lose or gain paise and break the
+ * zero-sum invariant that computeBalances depends on.
+ *
+ * Ties in the remainder are broken by the weights' original order, so the
+ * output is deterministic.
+ */
+export function allocateProportionally(
+  total: Paise,
+  weights: SplitAmount[]
+): SplitAmount[] {
+  const totalWeight = sum(weights.map((w) => w.amount))
+  if (weights.length === 0) return []
+
+  // Nothing to weight by (every share zero) — fall back to an even division so
+  // the money still lands somewhere deterministic rather than nowhere.
+  if (totalWeight <= 0) {
+    return splitEqually(
+      total,
+      weights.map((w) => w.memberId)
+    )
+  }
+
+  const exact = weights.map((w, index) => {
+    const value = (total * w.amount) / totalWeight
+    const floor = Math.floor(value)
+    return { index, memberId: w.memberId, floor, remainder: value - floor }
+  })
+
+  const leftover = total - sum(exact.map((e) => e.floor))
+
+  const order = [...exact].sort(
+    (a, b) => b.remainder - a.remainder || a.index - b.index
+  )
+  const bonus = new Set(order.slice(0, Math.max(0, leftover)).map((e) => e.index))
+
+  return exact.map((e) => ({
+    memberId: e.memberId,
+    amount: e.floor + (bonus.has(e.index) ? 1 : 0),
+  }))
+}
+
+/**
  * The authoritative per-member shares for an expense: explicit custom amounts
  * when present, otherwise an equal division across `owedBy`. Every consumer
  * (balances, summaries, exports) goes through this so equal and custom splits

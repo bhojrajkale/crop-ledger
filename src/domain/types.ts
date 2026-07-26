@@ -45,23 +45,47 @@ export interface SplitAmount {
   amount: Paise
 }
 
+/**
+ * Money actually handed over towards an expense. An expense carries a list of
+ * these rather than a single payer, because farm costs are routinely bought on
+ * credit: some cash at the shop now, the rest as "baaki" cleared weeks later,
+ * possibly by a different member and possibly in instalments.
+ *
+ * No payments at all means the whole amount is still outstanding.
+ */
+export interface Payment {
+  id: string
+  memberId: string
+  amount: Paise
+  paidAt: string // ISO yyyy-mm-dd
+}
+
 export interface Expense {
   id: string
-  cropId: string
+  /** The full cost, whether or not it has been paid yet. */
   amount: Paise
+  cropId: string
   category: CategoryId
   /** Display name when category === 'custom'. */
   customCategory?: string
   date: string // ISO yyyy-mm-dd
   notes: string
 
-  /** Member who actually handed over the money. */
-  paidBy: string
   /**
-   * Members the cost belongs to. Deliberately independent of `paidBy`, which
-   * is what lets one mechanism cover both cases the app must support:
+   * What has actually been paid, and by whom. Empty ⇒ wholly on credit.
+   * The shortfall against `amount` is owed outside the group (to a shop or
+   * contractor), which is a different kind of debt from one member owing
+   * another — see computeOutstanding vs computeBalances.
+   */
+  payments: Payment[]
+  /** Who the unpaid balance is owed to — a shop, dealer, labour contractor. */
+  owedTo?: string
+  /**
+   * Members the cost belongs to. Deliberately independent of who paid, which
+   * is what lets one mechanism cover every case the app must support:
    *   - paid by one, shared by several  → several ids here
    *   - paid by one, owed wholly by another → exactly one id, not the payer
+   *   - nobody paid yet → the split still applies, there is just no credit
    */
   owedBy: string[]
   /**

@@ -10,6 +10,7 @@ import { categoryLabel, getCategory } from '../domain/categories'
 import { formatINR } from '../domain/money'
 import { resolveSplit } from '../domain/split'
 import { computeTotals } from '../domain/settlement'
+import { amountOutstanding, isPending } from '../domain/payments'
 import { formatDate } from '../lib/format'
 import type { Expense } from '../domain/types'
 
@@ -24,6 +25,7 @@ export function ExpensesPage() {
   const [removing, setRemoving] = useState<Expense | null>(null)
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
+  const [pendingOnly, setPendingOnly] = useState(false)
 
   const crop = crops.find((c) => c.id === cropId)
 
@@ -37,15 +39,25 @@ export function ExpensesPage() {
     [expenses]
   )
 
+  const pendingCount = useMemo(
+    () => expenses.filter(isPending).length,
+    [expenses]
+  )
+
   const visible = useMemo(() => {
     const query = search.trim().toLowerCase()
     return expenses.filter((e) => {
+      if (pendingOnly && !isPending(e)) return false
       if (categoryFilter && e.category !== categoryFilter) return false
       if (!query) return true
       const label = categoryLabel(e.category, e.customCategory).toLowerCase()
-      return e.notes.toLowerCase().includes(query) || label.includes(query)
+      return (
+        e.notes.toLowerCase().includes(query) ||
+        label.includes(query) ||
+        (e.owedTo ?? '').toLowerCase().includes(query)
+      )
     })
-  }, [expenses, search, categoryFilter])
+  }, [expenses, search, categoryFilter, pendingOnly])
 
   if (!crop) return null
 
@@ -80,6 +92,11 @@ export function ExpensesPage() {
           <p className="text-sm text-[var(--muted)] mt-0.5 tnum">
             {formatINR(totals.perHead)} per head
           </p>
+          {totals.outstanding > 0 ? (
+            <p className="text-sm mt-1 tnum text-[var(--warning)]">
+              {formatINR(totals.outstanding)} still to pay
+            </p>
+          ) : null}
         </div>
         <Button variant="primary" onClick={() => setAdding(true)}>
           + Add
@@ -108,8 +125,18 @@ export function ExpensesPage() {
             className="w-full min-h-11 px-3 rounded-xl bg-[var(--surface-sunken)] border border-[var(--hairline)] text-[var(--ink)] placeholder:text-[var(--faint)] outline-none focus:border-[var(--primary-border)]"
           />
 
-          {presentCategories.length > 1 ? (
+          {presentCategories.length > 1 || pendingCount > 0 ? (
             <div className="flex flex-wrap gap-2">
+              {pendingCount > 0 ? (
+                <Chip
+                  selected={pendingOnly}
+                  color="--warning"
+                  onClick={() => setPendingOnly(!pendingOnly)}
+                >
+                  <span aria-hidden="true">⏳</span>
+                  Pending ({pendingCount})
+                </Chip>
+              ) : null}
               {presentCategories.map((id) => {
                 const category = getCategory(id)
                 return (
@@ -206,10 +233,19 @@ function ExpenseRow({
 }) {
   const category = getCategory(expense.category)
   const shares = resolveSplit(expense)
+  const payers = [...new Set(expense.payments.map((p) => p.memberId))]
   const soleOwer =
-    expense.owedBy.length === 1 && expense.owedBy[0] !== expense.paidBy
+    expense.owedBy.length === 1 && !payers.includes(expense.owedBy[0]!)
       ? expense.owedBy[0]
       : null
+  const outstanding = amountOutstanding(expense)
+
+  const paidLabel =
+    payers.length === 0
+      ? 'Unpaid'
+      : payers.length === 1
+        ? `${memberName(payers[0]!)} paid`
+        : `${payers.length} part-payments`
 
   return (
     <Card className="flex items-start gap-3">
@@ -232,7 +268,7 @@ function ExpenseRow({
         </div>
 
         <p className="text-sm text-[var(--muted)] mt-0.5">
-          {memberName(expense.paidBy)} paid ·{' '}
+          {paidLabel} ·{' '}
           {soleOwer ? (
             <span className="text-[var(--warning)]">
               {memberName(soleOwer)} owes it all
@@ -243,6 +279,14 @@ function ExpenseRow({
             `split ${shares.length} ways`
           )}
         </p>
+
+        {outstanding > 0 ? (
+          <p className="inline-flex items-center gap-1.5 text-xs font-medium mt-1.5 rounded-full px-2 py-1 bg-[var(--warning-tint)] text-[var(--warning)]">
+            <span aria-hidden="true">⏳</span>
+            {formatINR(outstanding)} pending
+            {expense.owedTo ? ` · ${expense.owedTo}` : ''}
+          </p>
+        ) : null}
 
         {expense.notes ? (
           <p className="text-sm text-[var(--faint)] mt-1 line-clamp-2">

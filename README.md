@@ -14,14 +14,21 @@ app — all data lives on your device, with no account and no server.
 - **People** — add everyone involved in a crop. No accounts or sign-ins; they
   are names used for splitting.
 - **Expenses** — amount, category, date and notes, plus **who paid** and **who
-  owes it**, tracked independently. That covers both the ordinary case (one
-  person pays, several share it) and the case where one person pays but
-  somebody else owes the whole amount. Splits can be equal or custom amounts.
-- **Summary** — total spent, per-head share, what each person paid versus
-  their share, spend by category, and the shortest list of payments that
-  settles everyone up.
+  owes it**, tracked independently. That covers the ordinary case (one person
+  pays, several share it) and the case where one person pays but somebody else
+  owes the whole amount. Splits can be equal or custom amounts.
+- **Credit** — an expense can be recorded unpaid or part-paid, with an optional
+  note of who it is owed to. It counts towards the crop's total straight away
+  and stays in a pending list until cleared. Payments can be recorded later, in
+  instalments, by any member.
+- **Summary** — total spent, per-head share, what is still to pay and to whom,
+  what each person paid versus their share, spend by category, and the shortest
+  list of payments that settles everyone up.
 - **Backup** — export everything to a JSON file and restore it on another
   device.
+
+Money owed to a shop is kept separate from money members owe each other, so
+the settlement only ever covers what has actually changed hands.
 
 Recording harvest revenue and dividing it between members is planned next; the
 data model and settlement engine already account for it.

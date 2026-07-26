@@ -14,18 +14,31 @@ const members: Member[] = [
   { id: 'c', name: 'Chandra' },
 ]
 
-const expense = (overrides: Partial<Expense>): Expense => ({
-  id: 'e1',
-  cropId: 'c1',
-  amount: toPaise(300),
-  category: 'seeds',
-  date: '2026-06-01',
-  notes: '',
-  paidBy: 'a',
-  owedBy: ['a', 'b', 'c'],
-  createdAt: '2026-06-01T00:00:00.000Z',
-  ...overrides,
-})
+/**
+ * `paidBy` is a test-only shorthand for "one member paid this in full", which
+ * is the ordinary case. Pass `payments` explicitly to model credit or
+ * instalments.
+ */
+const expense = (
+  overrides: Partial<Expense> & { paidBy?: string } = {}
+): Expense => {
+  const { paidBy, ...rest } = overrides
+  const amount = rest.amount ?? toPaise(300)
+  const base: Expense = {
+    id: 'e1',
+    cropId: 'c1',
+    amount,
+    category: 'seeds',
+    date: '2026-06-01',
+    notes: '',
+    payments: [
+      { id: 'p1', memberId: paidBy ?? 'a', amount, paidAt: '2026-06-01' },
+    ],
+    owedBy: ['a', 'b', 'c'],
+    createdAt: '2026-06-01T00:00:00.000Z',
+  }
+  return { ...base, ...rest }
+}
 
 const balancesOf = (m: Map<string, number>) => Object.fromEntries(m)
 
@@ -247,5 +260,117 @@ describe('countMemberExpenses', () => {
 
   it('returns zero for someone with no history', () => {
     expect(countMemberExpenses(expenses, 'nobody')).toBe(0)
+  })
+})
+
+describe('computeBalances with credit', () => {
+  const pay = (memberId: string, rupees: number) => ({
+    id: `p-${memberId}-${rupees}`,
+    memberId,
+    amount: toPaise(rupees),
+    paidAt: '2026-06-05',
+  })
+
+  it('leaves everyone square when nothing has been paid', () => {
+    // The money is owed to a shop, not between members — nobody should be
+    // told to pay anybody for a bill none of them has settled.
+    const balances = computeBalances(members, [
+      expense({ amount: toPaise(900), payments: [] }),
+    ])
+    expect(balancesOf(balances)).toEqual({ a: 0, b: 0, c: 0 })
+  })
+
+  it('settles only the part that has actually been paid', () => {
+    // ₹900 split 3 ways; Anil has paid ₹300 of it so far. That ₹300 covers
+    // ₹100 of each person's share, so B and C owe Anil ₹100 each.
+    const balances = computeBalances(members, [
+      expense({ amount: toPaise(900), payments: [pay('a', 300)] }),
+    ])
+    expect(balancesOf(balances)).toEqual({
+      a: toPaise(200),
+      b: toPaise(-100),
+      c: toPaise(-100),
+    })
+  })
+
+  it('keeps summing to zero with part-payments in play', () => {
+    const balances = computeBalances(members, [
+      expense({ id: 'e1', amount: toPaise(1000), payments: [pay('a', 333)] }),
+      expense({ id: 'e2', amount: toPaise(777), payments: [pay('b', 1)] }),
+      expense({ id: 'e3', amount: toPaise(500), payments: [] }),
+    ])
+    expect(sum([...balances.values()])).toBe(0)
+  })
+
+  it('credits several members paying instalments on one expense', () => {
+    const balances = computeBalances(members, [
+      expense({
+        amount: toPaise(900),
+        payments: [pay('a', 300), pay('b', 600)],
+      }),
+    ])
+    // All ₹900 is paid, so each owes their ₹300 share.
+    expect(balancesOf(balances)).toEqual({
+      a: 0,
+      b: toPaise(300),
+      c: toPaise(-300),
+    })
+  })
+
+  it('reaches the fully-paid result once the credit is cleared', () => {
+    const partly = computeBalances(members, [
+      expense({ amount: toPaise(900), payments: [pay('a', 400)] }),
+    ])
+    const cleared = computeBalances(members, [
+      expense({ amount: toPaise(900), payments: [pay('a', 400), pay('a', 500)] }),
+    ])
+    expect(sum([...partly.values()])).toBe(0)
+    expect(balancesOf(cleared)).toEqual({
+      a: toPaise(600),
+      b: toPaise(-300),
+      c: toPaise(-300),
+    })
+  })
+})
+
+describe('computeTotals with credit', () => {
+  const unpaid = expense({ id: 'u1', amount: toPaise(2000), payments: [] })
+  const partly = expense({
+    id: 'u2',
+    amount: toPaise(1000),
+    payments: [{ id: 'px', memberId: 'b', amount: toPaise(250), paidAt: '2026-06-05' }],
+  })
+
+  it('counts the full cost in the total, paid or not', () => {
+    const totals = computeTotals(members, [unpaid, partly])
+    expect(totals.total).toBe(toPaise(3000))
+    expect(totals.perHead).toBe(toPaise(1000))
+  })
+
+  it('reports paid and outstanding separately', () => {
+    const totals = computeTotals(members, [unpaid, partly])
+    expect(totals.paid).toBe(toPaise(250))
+    expect(totals.outstanding).toBe(toPaise(2750))
+    expect(totals.paid + totals.outstanding).toBe(totals.total)
+  })
+
+  it('charges each member their share of the full cost, including credit', () => {
+    const totals = computeTotals(members, [unpaid, partly])
+    const shares = [...totals.owedByMember.values()]
+    // ₹3,000 across three does not divide evenly, so shares land within a
+    // paisa of each other — what matters is that they add up to the total.
+    expect(sum(shares)).toBe(toPaise(3000))
+    for (const share of shares) {
+      expect(Math.abs(share - toPaise(1000))).toBeLessThanOrEqual(1)
+    }
+  })
+
+  it('counts only real payments in paidByMember', () => {
+    const totals = computeTotals(members, [unpaid, partly])
+    expect(balancesOf(totals.paidByMember)).toEqual({
+      a: 0,
+      b: toPaise(250),
+      c: 0,
+    })
   })
 })

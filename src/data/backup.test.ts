@@ -18,7 +18,7 @@ const expense: Expense = {
   category: 'seeds',
   date: '2026-06-02',
   notes: '',
-  paidBy: 'a',
+  payments: [{ id: 'p1', memberId: 'a', amount: 50_000, paidAt: '2026-06-02' }],
   owedBy: ['a'],
   createdAt: '2026-06-02T00:00:00.000Z',
 }
@@ -101,5 +101,42 @@ describe('parseBackup', () => {
   it('rejects a file missing its collections', () => {
     const result = parseBackup(JSON.stringify({ app: 'crop-ledger', version: 1 }))
     expect(result.ok).toBe(false)
+  })
+})
+
+describe('parseBackup with pre-credit backups', () => {
+  const legacyFile = JSON.stringify({
+    app: 'crop-ledger',
+    version: 1,
+    exportedAt: '2026-07-01T00:00:00.000Z',
+    crops: [crop],
+    expenses: [
+      {
+        id: 'old1',
+        cropId: 'c1',
+        amount: 90_000,
+        category: 'seeds',
+        date: '2026-06-01',
+        notes: '',
+        paidBy: 'a',
+        owedBy: ['a'],
+        createdAt: '2026-06-01T00:00:00.000Z',
+      },
+    ],
+  })
+
+  it('accepts a backup written before payments existed', () => {
+    expect(parseBackup(legacyFile).ok).toBe(true)
+  })
+
+  it('converts the old payer into a full payment on the way in', () => {
+    const result = parseBackup(legacyFile)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    const restored = result.payload.expenses[0]!
+    expect(restored.payments).toEqual([
+      { id: 'old1-legacy', memberId: 'a', amount: 90_000, paidAt: '2026-06-01' },
+    ])
+    expect('paidBy' in restored).toBe(false)
   })
 })

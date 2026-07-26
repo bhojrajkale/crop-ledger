@@ -1,13 +1,16 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useParams } from 'react-router'
 import { useLedgerStore } from '../store/useLedgerStore'
 import { Card, EmptyState, SectionTitle } from '../components/ui/Card'
 import { Avatar } from '../components/ui/Chip'
 import { computeBalances, computeTotals, minimizeTransfers } from '../domain/settlement'
+import { computeOutstanding } from '../domain/payments'
+import { RecordPaymentModal } from '../components/expenses/RecordPaymentModal'
+import { Button } from '../components/ui/Button'
 import { categoryLabel, getCategory } from '../domain/categories'
 import { formatINR } from '../domain/money'
-import { initials, pluralize } from '../lib/format'
-import type { CategoryId } from '../domain/types'
+import { formatDate, initials, pluralize } from '../lib/format'
+import type { CategoryId, Expense } from '../domain/types'
 
 export function SummaryPage() {
   const { cropId } = useParams<{ cropId: string }>()
@@ -26,6 +29,8 @@ export function SummaryPage() {
     [members, expenses]
   )
   const transfers = useMemo(() => minimizeTransfers(balances), [balances])
+  const outstanding = useMemo(() => computeOutstanding(expenses), [expenses])
+  const [payingOff, setPayingOff] = useState<Expense | null>(null)
 
   if (!crop) return null
 
@@ -75,15 +80,107 @@ export function SummaryPage() {
             </p>
           </div>
         </div>
+        {totals.outstanding > 0 ? (
+          <p className="text-sm text-[var(--muted)] mt-3 pt-3 border-t border-[var(--hairline)] tnum">
+            <span className="text-[var(--ink)] font-medium">
+              {formatINR(totals.paid)}
+            </span>{' '}
+            paid ·{' '}
+            <span className="text-[var(--warning)] font-medium">
+              {formatINR(totals.outstanding)}
+            </span>{' '}
+            still to pay
+          </p>
+        ) : null}
       </Card>
+
+      {outstanding.total > 0 ? (
+        <section>
+          <SectionTitle>Still to pay ({pluralize(outstanding.entries.length, 'bill')})</SectionTitle>
+          <Card className="mb-2">
+            <p className="text-xs uppercase tracking-wider text-[var(--faint)]">
+              Outstanding
+            </p>
+            <p className="text-2xl font-bold tnum mt-0.5 text-[var(--warning)]">
+              {formatINR(outstanding.total)}
+            </p>
+            <p className="text-sm text-[var(--muted)] mt-1">
+              Owed to shops and contractors, not between members — so it is
+              kept out of the settlement below until it is actually paid.
+            </p>
+            {outstanding.byCreditor.length > 1 ? (
+              <ul className="mt-3 pt-3 border-t border-[var(--hairline)] space-y-1 text-sm">
+                {outstanding.byCreditor.map((group) => (
+                  <li
+                    key={group.creditor ?? 'unnamed'}
+                    className="flex justify-between gap-3"
+                  >
+                    <span className="text-[var(--muted)] truncate">
+                      {group.creditor ?? 'Not recorded'}
+                    </span>
+                    <span className="tnum font-medium text-[var(--ink)] shrink-0">
+                      {formatINR(group.total)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </Card>
+
+          <ul className="space-y-2">
+            {outstanding.entries.map(({ expense, outstanding: due }) => (
+              <li key={expense.id}>
+                <Card>
+                  <div className="flex items-baseline justify-between gap-3">
+                    <p className="font-medium text-[var(--ink)] truncate">
+                      {categoryLabel(expense.category, expense.customCategory)}
+                    </p>
+                    <p className="font-semibold tnum shrink-0 text-[var(--warning)]">
+                      {formatINR(due)}
+                    </p>
+                  </div>
+                  <p className="text-sm text-[var(--muted)] mt-0.5">
+                    {expense.owedTo ? `${expense.owedTo} · ` : ''}
+                    {formatDate(expense.date)}
+                    {due < expense.amount
+                      ? ` · ${formatINR(expense.amount - due)} of ${formatINR(expense.amount)} paid`
+                      : ''}
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    className="mt-2.5"
+                    onClick={() => setPayingOff(expense)}
+                  >
+                    Record payment
+                  </Button>
+                </Card>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <section>
         <SectionTitle>Who owes whom</SectionTitle>
         {transfers.length === 0 ? (
           <Card>
-            <p className="text-sm text-[var(--positive)] font-medium">
-              Everyone is square — nothing to settle. ✓
-            </p>
+            {outstanding.total > 0 ? (
+              // Saying "everyone is square" while bills are unpaid would be
+              // true between members but misleading about the crop overall.
+              <p className="text-sm text-[var(--muted)]">
+                Nothing to settle{' '}
+                <span className="font-medium text-[var(--ink)]">
+                  between members
+                </span>{' '}
+                — but {formatINR(outstanding.total)} is still owed outside the
+                group.
+              </p>
+            ) : (
+              <p className="text-sm text-[var(--positive)] font-medium">
+                Everyone is square — nothing to settle. ✓
+              </p>
+            )}
           </Card>
         ) : (
           <>
@@ -209,6 +306,12 @@ export function SummaryPage() {
           })}
         </Card>
       </section>
+
+      <RecordPaymentModal
+        expense={payingOff}
+        members={members}
+        onClose={() => setPayingOff(null)}
+      />
     </div>
   )
 }

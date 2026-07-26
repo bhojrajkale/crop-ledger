@@ -1,7 +1,8 @@
 import { create } from 'zustand'
-import type { Crop, Expense, Member } from '../domain/types'
+import type { Crop, Expense, Member, Payment } from '../domain/types'
 import { dexieRepository, type CropRepository } from '../data/repository'
 import { buildBackup, parseBackup, type ParseResult } from '../data/backup'
+import { applyPayment, removePayment } from '../domain/payments'
 
 interface LedgerState {
   crops: Crop[]
@@ -22,6 +23,14 @@ interface LedgerState {
 
   saveExpense: (expense: Expense) => Promise<void>
   deleteExpense: (expenseId: string) => Promise<void>
+
+  /** Records money paid towards an expense bought on credit. */
+  recordPayment: (
+    expenseId: string,
+    payment: Payment
+  ) => Promise<{ trimmed: boolean }>
+  /** Undoes a recorded payment, putting the amount back on credit. */
+  undoPayment: (expenseId: string, paymentId: string) => Promise<void>
 
   exportBackup: () => Promise<ReturnType<typeof buildBackup>>
   importBackup: (text: string) => Promise<ParseResult>
@@ -124,6 +133,22 @@ export const useLedgerStore = create<LedgerState>((set, get) => ({
       set({ error: message(e) })
       throw e
     }
+  },
+
+  async recordPayment(expenseId, payment) {
+    const expense = get().expenses.find((e) => e.id === expenseId)
+    if (!expense) return { trimmed: false }
+    // applyPayment spreads the stored expense, so fields this screen never
+    // touches survive the write.
+    const { expense: updated, trimmed } = applyPayment(expense, payment)
+    await get().saveExpense(updated)
+    return { trimmed }
+  },
+
+  async undoPayment(expenseId, paymentId) {
+    const expense = get().expenses.find((e) => e.id === expenseId)
+    if (!expense) return
+    await get().saveExpense(removePayment(expense, paymentId))
   },
 
   async exportBackup() {

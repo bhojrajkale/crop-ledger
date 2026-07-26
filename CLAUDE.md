@@ -44,16 +44,18 @@ Parse user input with `parseRupees()` (returns `null` for unusable input, so
 "empty" is distinguishable from "zero"). Display with `formatINR()`. Never
 call `Number(input) * 100` inline.
 
-## Splits: `paidBy` and `owedBy` are independent
+## Splits: who paid and who owes are independent
 
-An `Expense` records who handed over the money (`paidBy`) separately from who
-the cost belongs to (`owedBy`). This is deliberate and is what lets one
-mechanism cover both cases the app exists to handle:
+An `Expense` records money actually handed over (`payments`) separately from
+who the cost belongs to (`owedBy`). This is deliberate and is what lets one
+mechanism cover every case the app exists to handle:
 
 - paid by one, shared by several → several ids in `owedBy`
-- paid by one, owed wholly by another → exactly one id in `owedBy`, not the payer
+- paid by one, owed wholly by another → exactly one id in `owedBy`, not a payer
+- bought on credit → `payments` is empty; the split still applies
+- part-paid, or paid in instalments by different people → several `payments`
 
-There is no special-case branch for the second one. Do not add one.
+There is no special-case branch for any of these. Do not add one.
 
 `splitAmounts` present ⇒ custom per-member amounts, authoritative.
 `splitAmounts` absent ⇒ equal division across `owedBy`.
@@ -66,17 +68,38 @@ stale amounts behind silently changes the settlement.
 members in the given order, so a split always sums to exactly the total. This
 is tested exhaustively; don't replace it with naive division.
 
+## Two kinds of debt — never merge them
+
+This distinction is what the credit feature rests on, and collapsing it gives
+you a ledger that quietly stops balancing:
+
+- **Between members** — `computeBalances()` / `minimizeTransfers()`. Reflects
+  only money that has *actually changed hands*. Each member is debited their
+  share of what has been **paid**, never of what is still owed to a shop.
+- **Outside the group** — `computeOutstanding()` in `domain/payments.ts`.
+  Everything unpaid, optionally grouped by `owedTo`.
+
+A part-payment covers everyone's share proportionally, via
+`allocateProportionally()` — not one person's share in full. Charging unpaid
+amounts to members would break the zero-sum invariant below and tell people to
+pay each other for money nobody has spent yet.
+
+`amountOutstanding()` clamps at zero so a mistyped over-payment cannot show as
+negative debt or offset another expense, and `applyPayment()` trims a payment
+that would overshoot rather than storing it.
+
 ## Settlement invariant
 
-`computeBalances()` returns `paid − owed` per member. **Balances always sum to
-zero.** Any change to expense or sale handling must preserve that — it is the
-property the whole ledger rests on, and `settlement.test.ts` asserts it.
+`computeBalances()` returns `paid − (share of what was paid)` per member.
+**Balances always sum to zero**, including with credit and part-payments in
+play. Any change to expense, payment or sale handling must preserve that — it
+is the property the whole ledger rests on, and `settlement.test.ts` asserts it
+directly.
 
 `computeBalances(members, expenses, sales)` takes an optional third argument
-that is unused in V1. A sale is arithmetically an inverted expense: the member
+that is still unused. A sale is arithmetically an inverted expense: the member
 who collected the cash is debited the total, every member credited an equal
-share. Revenue (V2) is therefore a form and a screen, not a change to the
-engine.
+share. Revenue is therefore a form and a screen, not a change to the engine.
 
 ## Storage is device-local and has no server copy
 
@@ -93,9 +116,17 @@ forgotten:
   an import.
 
 The `sales` table exists in Dexie schema version 1 despite being unused, so
-adding revenue later needs no migration on devices that already hold data. If
-you do need a schema change, add a new `version(n).stores({...})` block; never
-edit version 1.
+adding revenue later needs no migration on devices that already hold data.
+
+**Never edit an existing `version(n).stores({...})` block** — devices holding
+data upgrade by replaying the versions they have not seen, so rewriting an old
+one means they never run the upgrade. Add a new block instead. Version 2 added
+`payments` and dropped `paidBy`; `data/migrate.ts` does that conversion and is
+deliberately idempotent, because it runs from two places: the Dexie upgrade
+hook, and `parseBackup()` for backup files written before credit tracking
+existed. A migration must leave existing balances *identical* — an upgrade that
+silently restates last season's books is worse than no upgrade, and
+`migrate.test.ts` asserts this.
 
 ## Full-object writes
 

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { resolveSplit, splitEqually, validateCustomSplit } from './split'
+import {
+  allocateProportionally,
+  resolveSplit,
+  splitEqually,
+  validateCustomSplit,
+} from './split'
 import { sum, toPaise } from './money'
 import type { Expense } from './types'
 
@@ -10,7 +15,7 @@ const expense = (overrides: Partial<Expense>): Expense => ({
   category: 'seeds',
   date: '2026-06-01',
   notes: '',
-  paidBy: 'a',
+  payments: [{ id: 'p1', memberId: 'a', amount: toPaise(300), paidAt: '2026-06-01' }],
   owedBy: ['a', 'b', 'c'],
   createdAt: '2026-06-01T00:00:00.000Z',
   ...overrides,
@@ -86,7 +91,7 @@ describe('resolveSplit', () => {
 
   it('assigns the whole cost to one member when only they owe it', () => {
     const shares = resolveSplit(
-      expense({ amount: toPaise(300), paidBy: 'a', owedBy: ['b'] })
+      expense({ amount: toPaise(300), owedBy: ['b'] })
     )
     expect(shares).toEqual([{ memberId: 'b', amount: toPaise(300) }])
   })
@@ -113,5 +118,69 @@ describe('validateCustomSplit', () => {
         { memberId: 'a', amount: toPaise(400) },
       ])
     ).toEqual({ valid: false, difference: toPaise(100) })
+  })
+})
+
+describe('allocateProportionally', () => {
+  const w = (entries: [string, number][]) =>
+    entries.map(([memberId, amount]) => ({ memberId, amount: toPaise(amount) }))
+
+  it('splits a part-payment across everyone in proportion to their share', () => {
+    // Half the bill paid covers half of each person's share, not one in full.
+    const result = allocateProportionally(toPaise(500), w([['a', 500], ['b', 500]]))
+    expect(result).toEqual([
+      { memberId: 'a', amount: toPaise(250) },
+      { memberId: 'b', amount: toPaise(250) },
+    ])
+  })
+
+  it('respects uneven weights', () => {
+    const result = allocateProportionally(toPaise(300), w([['a', 800], ['b', 200]]))
+    expect(result).toEqual([
+      { memberId: 'a', amount: toPaise(240) },
+      { memberId: 'b', amount: toPaise(60) },
+    ])
+  })
+
+  it('always sums to exactly the total, including on thirds', () => {
+    const result = allocateProportionally(
+      toPaise(100),
+      w([['a', 10], ['b', 10], ['c', 10]])
+    )
+    expect(sum(result.map((r) => r.amount))).toBe(toPaise(100))
+  })
+
+  it('gives leftover paise to the largest remainders, deterministically', () => {
+    const result = allocateProportionally(10, w([['a', 1], ['b', 1], ['c', 1]]))
+    expect(sum(result.map((r) => r.amount))).toBe(10)
+    expect(result.map((r) => r.amount)).toEqual([4, 3, 3])
+    expect(allocateProportionally(10, w([['a', 1], ['b', 1], ['c', 1]]))).toEqual(result)
+  })
+
+  it('handles a zero total and an empty list', () => {
+    expect(allocateProportionally(0, w([['a', 100]]))).toEqual([
+      { memberId: 'a', amount: 0 },
+    ])
+    expect(allocateProportionally(toPaise(50), [])).toEqual([])
+  })
+
+  it('falls back to an even split when every weight is zero', () => {
+    const result = allocateProportionally(toPaise(90), w([['a', 0], ['b', 0]]))
+    expect(sum(result.map((r) => r.amount))).toBe(toPaise(90))
+  })
+
+  it('never loses a paisa across many awkward totals and weightings', () => {
+    for (let total = 0; total <= 300; total += 7) {
+      for (const weights of [
+        w([['a', 1], ['b', 2]]),
+        w([['a', 1], ['b', 1], ['c', 1]]),
+        w([['a', 33], ['b', 33], ['c', 34]]),
+        w([['a', 5], ['b', 0], ['c', 1], ['d', 9]]),
+      ]) {
+        expect(sum(allocateProportionally(total, weights).map((r) => r.amount))).toBe(
+          total
+        )
+      }
+    }
   })
 })

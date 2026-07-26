@@ -1,5 +1,6 @@
 import type { Crop, Expense, Sale } from '../domain/types'
 import type { BackupPayload } from './repository'
+import { migrateExpense } from './migrate'
 
 export const BACKUP_VERSION = 1
 
@@ -40,6 +41,11 @@ function isCrop(value: unknown): value is Crop {
   )
 }
 
+/**
+ * Accepts both shapes: current expenses carry a `payments` array, while
+ * backups taken before credit tracking existed carry a single `paidBy`.
+ * Either is valid input — migrateExpense() normalises them on the way in.
+ */
 function isExpense(value: unknown): value is Expense {
   return (
     isObject(value) &&
@@ -47,7 +53,7 @@ function isExpense(value: unknown): value is Expense {
     isString(value.cropId) &&
     typeof value.amount === 'number' &&
     Number.isFinite(value.amount) &&
-    isString(value.paidBy) &&
+    (Array.isArray(value.payments) || isString(value.paidBy)) &&
     Array.isArray(value.owedBy)
   )
 }
@@ -111,7 +117,10 @@ export function parseBackup(text: string): ParseResult {
 
   return {
     ok: true,
-    payload: { crops, expenses, sales },
+    // Normalise on the way in, so a backup taken before credit tracking
+    // existed restores as ordinary fully-paid expenses rather than landing
+    // in the database in a shape the rest of the app no longer understands.
+    payload: { crops, expenses: expenses.map(migrateExpense), sales },
     crops: crops.length,
     expenses: expenses.length,
   }

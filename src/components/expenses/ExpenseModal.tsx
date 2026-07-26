@@ -12,6 +12,8 @@ import { todayISO } from '../../lib/format'
 import type { CategoryId, Crop, Expense, SplitAmount } from '../../domain/types'
 
 type SplitMode = 'equal' | 'custom'
+/** How much of this expense has been settled at the moment of entry. */
+type PayMode = 'full' | 'part' | 'credit'
 
 export function ExpenseModal({
   open,
@@ -33,6 +35,9 @@ export function ExpenseModal({
   const [date, setDate] = useState(todayISO())
   const [notes, setNotes] = useState('')
   const [paidBy, setPaidBy] = useState('')
+  const [payMode, setPayMode] = useState<PayMode>('full')
+  const [paidText, setPaidText] = useState('')
+  const [owedTo, setOwedTo] = useState('')
   const [owedBy, setOwedBy] = useState<string[]>([])
   const [splitMode, setSplitMode] = useState<SplitMode>('equal')
   const [customText, setCustomText] = useState<Record<string, string>>({})
@@ -42,12 +47,16 @@ export function ExpenseModal({
   useEffect(() => {
     if (!open) return
     const allIds = members.map((m) => m.id)
+    const existingPaid = editExpense
+      ? editExpense.payments.reduce((t, p) => t + p.amount, 0)
+      : 0
+
     setAmountText(editExpense ? formatAmount(editExpense.amount) : '')
     setCategory(editExpense?.category ?? 'seeds')
     setCustomCategory(editExpense?.customCategory ?? '')
     setDate(editExpense?.date ?? todayISO())
     setNotes(editExpense?.notes ?? '')
-    setPaidBy(editExpense?.paidBy ?? allIds[0] ?? '')
+    setOwedTo(editExpense?.owedTo ?? '')
     setOwedBy(editExpense?.owedBy ?? allIds)
     setSplitMode(editExpense?.splitAmounts?.length ? 'custom' : 'equal')
     setCustomText(
@@ -58,10 +67,40 @@ export function ExpenseModal({
         ])
       )
     )
+
+    if (editExpense) {
+      setPayMode(
+        existingPaid === 0
+          ? 'credit'
+          : existingPaid >= editExpense.amount
+            ? 'full'
+            : 'part'
+      )
+      setPaidText(existingPaid > 0 ? formatAmount(existingPaid) : '')
+      setPaidBy(editExpense.payments[0]?.memberId ?? allIds[0] ?? '')
+    } else {
+      setPayMode('full')
+      setPaidText('')
+      setPaidBy(allIds[0] ?? '')
+    }
     setError(undefined)
   }, [open, editExpense, members])
 
   const amount = parseRupees(amountText)
+  const partAmount = parseRupees(paidText)
+
+  // How much this form says has been handed over.
+  const paidNow =
+    payMode === 'full' ? (amount ?? 0) : payMode === 'part' ? (partAmount ?? 0) : 0
+  const outstandingNow = Math.max(0, (amount ?? 0) - paidNow)
+
+  /**
+   * Editing an expense that already carries several instalments is out of
+   * scope for this form — rewriting them from two fields would silently
+   * destroy who paid what and when. Those are managed from the Outstanding
+   * list instead, so here we only guard against clobbering them.
+   */
+  const hasMultiplePayments = (editExpense?.payments.length ?? 0) > 1
 
   const customSplits: SplitAmount[] = useMemo(
     () =>
@@ -86,14 +125,46 @@ export function ExpenseModal({
     )
   }
 
+  /**
+   * Rebuilds the payment list from the form. Existing instalments are left
+   * alone when there is more than one, since this form cannot represent them
+   * and overwriting would lose who paid what; otherwise the single payment is
+   * replaced to match what the form now says.
+   */
+  const buildPayments = () => {
+    if (hasMultiplePayments) return editExpense!.payments
+    if (paidNow <= 0) return []
+    const existing = editExpense?.payments[0]
+    return [
+      {
+        id: existing?.id ?? newId(),
+        memberId: paidBy,
+        amount: paidNow,
+        paidAt: existing?.paidAt ?? date,
+      },
+    ]
+  }
+
   const submit = async () => {
     if (amount === null || amount <= 0) {
       setError('Enter an amount.')
       return
     }
-    if (!paidBy) {
+    if (payMode !== 'credit' && !paidBy) {
       setError('Pick who paid.')
       return
+    }
+    if (payMode === 'part') {
+      if (partAmount === null || partAmount <= 0) {
+        setError('Enter how much has been paid so far.')
+        return
+      }
+      if (partAmount >= amount) {
+        setError(
+          'That covers the whole amount — choose “Paid in full” instead.'
+        )
+        return
+      }
     }
     if (owedBy.length === 0) {
       setError('Pick who this expense is for.')
@@ -118,17 +189,19 @@ export function ExpenseModal({
         ...(editExpense ?? {
           id: newId(),
           cropId: crop.id,
+          payments: [],
           createdAt: new Date().toISOString(),
         }),
         amount,
         category,
         date,
         notes: notes.trim(),
-        paidBy,
         owedBy,
+        payments: buildPayments(),
         ...(category === 'custom'
           ? { customCategory: customCategory.trim() }
           : {}),
+        ...(owedTo.trim() ? { owedTo: owedTo.trim() } : {}),
         ...(splitMode === 'custom' ? { splitAmounts: customSplits } : {}),
       }
       // Clear fields that no longer apply — an edit that switches back to an
@@ -136,6 +209,7 @@ export function ExpenseModal({
       // resolveSplit treats splitAmounts as authoritative.
       if (category !== 'custom') delete expense.customCategory
       if (splitMode !== 'custom') delete expense.splitAmounts
+      if (!owedTo.trim()) delete expense.owedTo
 
       await saveExpense(expense)
       onOpenChange(false)
@@ -212,19 +286,83 @@ export function ExpenseModal({
 
         <fieldset>
           <legend className="text-sm font-medium text-[var(--muted)] mb-2">
-            Who paid
+            Paid?
           </legend>
-          <div className="flex flex-wrap gap-2">
-            {members.map((m) => (
-              <Chip
-                key={m.id}
-                selected={paidBy === m.id}
-                onClick={() => setPaidBy(m.id)}
-              >
-                {m.name}
-              </Chip>
-            ))}
-          </div>
+          {hasMultiplePayments ? (
+            <p className="text-sm text-[var(--muted)] bg-[var(--surface-sunken)] rounded-lg px-3 py-2">
+              This expense has several part-payments recorded. Manage them from
+              the Outstanding list on the Summary tab.
+            </p>
+          ) : (
+            <>
+              <div className="flex flex-wrap gap-2">
+                <Chip
+                  selected={payMode === 'full'}
+                  onClick={() => setPayMode('full')}
+                >
+                  Paid in full
+                </Chip>
+                <Chip
+                  selected={payMode === 'part'}
+                  onClick={() => setPayMode('part')}
+                >
+                  Partly paid
+                </Chip>
+                <Chip
+                  selected={payMode === 'credit'}
+                  onClick={() => setPayMode('credit')}
+                >
+                  On credit
+                </Chip>
+              </div>
+
+              {payMode === 'part' ? (
+                <AmountField
+                  label="Paid so far"
+                  className="mt-3"
+                  placeholder="0"
+                  value={paidText}
+                  onChange={(e) => setPaidText(e.target.value)}
+                />
+              ) : null}
+
+              {payMode !== 'credit' ? (
+                <div className="mt-3">
+                  <p className="text-sm font-medium text-[var(--muted)] mb-2">
+                    Paid by
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {members.map((m) => (
+                      <Chip
+                        key={m.id}
+                        selected={paidBy === m.id}
+                        onClick={() => setPaidBy(m.id)}
+                      >
+                        {m.name}
+                      </Chip>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {outstandingNow > 0 && amount !== null ? (
+                <p className="text-sm mt-3 rounded-lg px-2.5 py-1.5 bg-[var(--warning-tint)] text-[var(--warning)]">
+                  {formatINR(outstandingNow)} stays outstanding — you can record
+                  payments against it later.
+                </p>
+              ) : null}
+
+              {payMode !== 'full' ? (
+                <Field
+                  label="Owed to"
+                  className="mt-3"
+                  placeholder="Shop, dealer or contractor (optional)"
+                  value={owedTo}
+                  onChange={(e) => setOwedTo(e.target.value)}
+                />
+              ) : null}
+            </>
+          )}
         </fieldset>
 
         <fieldset>
