@@ -35,3 +35,15 @@ export function initials(name: string): string {
 export function pluralize(count: number, singular: string, plural?: string) {
   return `${count} ${count === 1 ? singular : (plural ?? `${singular}s`)}`
 }
+
+/**
+ * Human-readable file size. Used to show what a receipt costs in storage —
+ * on a device-local app the quota is finite and shared with the ledger, so
+ * this is worth surfacing rather than hiding.
+ */
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  const kb = bytes / 1024
+  if (kb < 1024) return `${Math.round(kb)} KB`
+  return `${(kb / 1024).toFixed(1)} MB`
+}

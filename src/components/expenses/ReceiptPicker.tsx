@@ -3,6 +3,7 @@ import { Button } from '../ui/Button'
 import { useObjectUrl } from '../../lib/useObjectUrl'
 import { compressImage, isImageFile } from '../../lib/image'
 import { newId } from '../../lib/id'
+import { formatBytes, pluralize } from '../../lib/format'
 import type { Receipt } from '../../domain/types'
 
 /** Keeps one bad photo from blocking the rest of a multi-file selection. */
@@ -31,11 +32,15 @@ export function ReceiptPicker({
   onRemove: (receiptId: string) => void
   onView: (index: number) => void
 }) {
-  const input = useRef<HTMLInputElement>(null)
+  // Two separate inputs rather than one. `capture` cannot be toggled
+  // reliably on a live element, and relying on the OS picker to offer both
+  // hid the choice: the user could not tell the camera was an option at all.
+  const cameraInput = useRef<HTMLInputElement>(null)
+  const galleryInput = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
 
-  const handleFiles = async (files: FileList) => {
+  const handleFiles = async (files: FileList, source: HTMLInputElement | null) => {
     setBusy(true)
     setError(undefined)
     const images = [...files].filter(isImageFile)
@@ -60,8 +65,10 @@ export function ReceiptPicker({
     }
     setBusy(false)
     // Reset so picking the same file again still fires change.
-    if (input.current) input.current.value = ''
+    if (source) source.value = ''
   }
+
+  const totalBytes = receipts.reduce((sum, r) => sum + r.image.size, 0)
 
   return (
     <fieldset>
@@ -83,25 +90,40 @@ export function ReceiptPicker({
         </ul>
       ) : null}
 
+      {/* Opens the camera directly. `capture` is only a hint — desktop
+          browsers ignore it and fall back to a file dialog, which is the
+          sensible behaviour there anyway. */}
       <input
-        ref={input}
+        ref={cameraInput}
         type="file"
-        // No `capture` attribute: that would force the camera and remove the
-        // option of picking a bill photographed earlier.
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={(e) => {
+          if (e.target.files?.length) void handleFiles(e.target.files, e.target)
+        }}
+      />
+      {/* No `capture`, so this opens the photo library. Multiple allowed —
+          a bill photographed page by page can be added in one go. */}
+      <input
+        ref={galleryInput}
+        type="file"
         accept="image/*"
         multiple
         className="hidden"
         onChange={(e) => {
-          if (e.target.files?.length) void handleFiles(e.target.files)
+          if (e.target.files?.length) void handleFiles(e.target.files, e.target)
         }}
       />
-      <Button
-        size="sm"
-        disabled={busy}
-        onClick={() => input.current?.click()}
-      >
-        {busy ? 'Adding…' : receipts.length > 0 ? '+ Add another' : '📷 Add photo'}
-      </Button>
+
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" disabled={busy} onClick={() => cameraInput.current?.click()}>
+          {busy ? 'Adding…' : '📷 Take photo'}
+        </Button>
+        <Button size="sm" disabled={busy} onClick={() => galleryInput.current?.click()}>
+          🖼️ Choose photo
+        </Button>
+      </div>
 
       {error ? (
         <p role="alert" className="text-sm text-[var(--negative)] mt-2">
@@ -109,7 +131,9 @@ export function ReceiptPicker({
         </p>
       ) : (
         <p className="text-xs text-[var(--faint)] mt-2">
-          Photos are shrunk before saving and stay on this device.
+          {receipts.length > 0
+            ? `${pluralize(receipts.length, 'photo')} · ${formatBytes(totalBytes)} after shrinking. Stored on this device only.`
+            : 'Photos are shrunk before saving and stay on this device.'}
         </p>
       )}
     </fieldset>

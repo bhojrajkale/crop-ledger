@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { formatDate, formatLongDate, initials, pluralize, todayISO } from './format'
+import {
+  formatBytes,
+  formatDate,
+  formatLongDate,
+  initials,
+  pluralize,
+  todayISO,
+} from './format'
 
 describe('todayISO', () => {
   it('returns a yyyy-mm-dd string', () => {
@@ -56,5 +63,22 @@ describe('pluralize', () => {
 
   it('accepts an irregular plural', () => {
     expect(pluralize(2, 'entry', 'entries')).toBe('2 entries')
+  })
+})
+
+describe('formatBytes', () => {
+  it('shows bytes below a kilobyte', () => {
+    expect(formatBytes(0)).toBe('0 B')
+    expect(formatBytes(900)).toBe('900 B')
+  })
+
+  it('rounds to whole kilobytes', () => {
+    expect(formatBytes(1024)).toBe('1 KB')
+    expect(formatBytes(250 * 1024)).toBe('250 KB')
+  })
+
+  it('switches to megabytes with one decimal', () => {
+    expect(formatBytes(1024 * 1024)).toBe('1.0 MB')
+    expect(formatBytes(4.25 * 1024 * 1024)).toBe('4.3 MB')
   })
 })
