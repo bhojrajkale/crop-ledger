@@ -159,6 +159,32 @@ an optional prop that callers pass `string | undefined` into must be declared
 PNG encoder, no dependencies). Re-run `node scripts/generate-icons.mjs public`
 after changing the artwork rather than hand-editing the binaries.
 
+## Updates are prompted, never silent
+
+The PWA runs `registerType: 'prompt'`, not `autoUpdate`. Under autoUpdate a
+deploy swapped in silently on some later reload, so there was no way to tell a
+stale cached app from a current one — which cost real debugging time. Now the
+new worker waits and `UpdatePrompt` offers "Reload now".
+
+Consequences to preserve:
+
+- `injectRegister: null` in `vite.config.ts`. Registration happens once, in
+  `UpdatePrompt` via `useRegisterSW`. Re-enabling the injected script would
+  race it.
+- The generated `sw.js` must keep `skipWaiting` **inside the `SKIP_WAITING`
+  message listener** and must not call `clientsClaim` at top level. That is
+  what makes the waiting worker wait. Verify after touching PWA config.
+- `vite.config.ts` stamps `__APP_VERSION__` / `__BUILD_SHA__` /
+  `__BUILD_TIME__`, surfaced in Settings via `lib/version.ts`. The SHA is what
+  actually distinguishes two builds — keep it in any version display, and bump
+  `package.json` version on a user-visible release.
+- Updates are also re-checked hourly and whenever the tab becomes visible,
+  because an installed PWA can sit backgrounded for days.
+
+Never suggest "clear site data" to fix a stale app. It deletes the IndexedDB
+ledger, which is the only copy. Reloading, or Settings → Check for updates, is
+the fix.
+
 ## Deployment
 
 `.github/workflows/deploy.yml` builds and publishes to GitHub Pages on push to

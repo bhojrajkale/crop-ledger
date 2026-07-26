@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useState } from 'react'
 import { Outlet } from 'react-router'
 import { useLedgerStore } from '../store/useLedgerStore'
 import { applyTheme, getInitialTheme, type Theme } from '../lib/theme'
+import { UpdatePrompt } from '../components/UpdatePrompt'
 
 export function AppLayout() {
   const load = useLedgerStore((s) => s.load)
@@ -32,6 +33,7 @@ export function AppLayout() {
         </div>
       ) : null}
       <Outlet />
+      <UpdatePrompt />
     </div>
   )
 }
