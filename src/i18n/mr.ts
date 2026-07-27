@@ -88,9 +88,9 @@ export const mr: Record<keyof typeof en, string> = {
   removeMemberSafe: 'ते कोणत्याही खर्चात नाहीत, त्यामुळे बाकी काही बदलणार नाही.',
 
   // Expenses list
-  addPeopleFirstTitle: 'आधी व्यक्ती जोडा',
+  addPeopleFirstTitle: 'अगोदर व्यक्ती जोडा',
   addPeopleFirstBody:
-    'खर्चासाठी तो कोणी दिला आणि कोणावर आहे हे लागते, म्हणून आधी या पिकात सहभागी व्यक्ती जोडा.',
+    'खर्चासाठी तो कोणी दिला आणि कोणावर आहे हे लागते, म्हणून अगोदर या पिकात सहभागी व्यक्ती जोडा.',
   addPeople: 'व्यक्ती जोडा',
   totalSpent: 'एकूण खर्च',
   perHead: 'दरडोई {amount}',
