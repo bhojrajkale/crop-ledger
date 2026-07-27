@@ -239,6 +239,8 @@ export const mr: Record<keyof typeof en, string> = {
   importBody2: '— इथली माहिती ठेवायची असेल तर अगोदर बॅकअप घ्या.',
   chooseBackupFile: 'बॅकअप फाइल निवडा',
   restored: '{crops}, {expenses}{photos} परत आणले.',
+  photosNotRestored:
+    'तुमची पिके व खर्च जतन झाले, पण {photos} या फोनवर साठवता आले नाहीत.',
   restoredPhotos: ' आणि {photos}',
   crops: '{count} पिके',
   crops_one: '{count} पीक',

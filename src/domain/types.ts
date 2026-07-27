@@ -112,11 +112,28 @@ export interface Expense {
 export interface Receipt {
   id: string
   expenseId: string
-  /** JPEG, already scaled down by compressImage(). */
-  image: Blob
+  /**
+   * Raw JPEG bytes, already scaled down by compressImage().
+   *
+   * Deliberately an ArrayBuffer rather than a Blob. iOS Safari fails to put
+   * a Blob built from raw bytes into IndexedDB — "Error preparing Blob/File
+   * data to be stored in object store" — which broke restoring a backup on
+   * a phone. (A Blob straight from canvas.toBlob() happens to survive, which
+   * is why capturing a photo worked while importing one did not.) ArrayBuffer
+   * is plainly structured-cloneable and stores reliably everywhere, so the
+   * bytes are the stored form and a Blob is rebuilt only for display.
+   */
+  image: ArrayBuffer
+  mimeType: string
   width: number
   height: number
   addedAt: string // ISO timestamp
+}
+
+/** The pre-fix shape, still on devices that stored photos before. */
+export interface LegacyBlobReceipt extends Omit<Receipt, 'image' | 'mimeType'> {
+  image: Blob
+  mimeType?: string
 }
 
 /**

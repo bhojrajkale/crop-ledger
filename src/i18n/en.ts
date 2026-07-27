@@ -238,6 +238,8 @@ export const en = {
   importBody2: '— export first if you have data here you want to keep.',
   chooseBackupFile: 'Choose backup file',
   restored: 'Restored {crops}, {expenses}{photos}.',
+  photosNotRestored:
+    'Your crops and expenses are saved, but {photos} could not be stored on this device.',
   restoredPhotos: ' and {photos}',
   crops: '{count} crops',
   crops_one: '{count} crop',

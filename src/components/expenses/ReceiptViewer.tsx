@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useObjectUrl } from '../../lib/useObjectUrl'
+import { useReceiptUrl } from '../../lib/useObjectUrl'
 import { useT } from '../../i18n'
 import type { Receipt } from '../../domain/types'
 
@@ -21,7 +21,7 @@ export function ReceiptViewer({
   const t = useT()
   const [index, setIndex] = useState(startIndex)
   const current = receipts[Math.min(index, receipts.length - 1)]
-  const url = useObjectUrl(current?.image)
+  const url = useReceiptUrl(current)
 
   useEffect(() => {
     setIndex(startIndex)

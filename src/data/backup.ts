@@ -1,15 +1,16 @@
 import type { Crop, Expense, Receipt, Sale } from '../domain/types'
 import type { BackupPayload } from './repository'
 import { migrateExpense } from './migrate'
-import { blobToDataUrl, dataUrlToBlob } from '../lib/image'
+import { bytesToDataUrl, dataUrlToBytes } from '../lib/image'
 
 // v2 added receipt photos. Version 1 files still import — only a *newer*
 // version than we understand is refused.
 export const BACKUP_VERSION = 2
 
-/** A receipt as it travels in JSON: the blob becomes a base64 data URL. */
-interface SerialisedReceipt extends Omit<Receipt, 'image'> {
+/** A receipt as it travels in JSON: the bytes become a base64 data URL. */
+interface SerialisedReceipt extends Omit<Receipt, 'image' | 'mimeType'> {
   image: string
+  mimeType?: string
 }
 
 export interface BackupFile extends Omit<BackupPayload, 'receipts'> {
@@ -20,12 +21,10 @@ export interface BackupFile extends Omit<BackupPayload, 'receipts'> {
 }
 
 export async function buildBackup(payload: BackupPayload): Promise<BackupFile> {
-  const receipts = await Promise.all(
-    payload.receipts.map(async (receipt) => ({
-      ...receipt,
-      image: await blobToDataUrl(receipt.image),
-    }))
-  )
+  const receipts = payload.receipts.map((receipt) => ({
+    ...receipt,
+    image: bytesToDataUrl(receipt.image, receipt.mimeType),
+  }))
   return {
     app: 'crop-ledger',
     version: BACKUP_VERSION,
@@ -160,12 +159,10 @@ export async function parseBackup(text: string): Promise<ParseResult> {
 
   let receipts: Receipt[]
   try {
-    receipts = await Promise.all(
-      serialised.map(async (receipt) => ({
-        ...receipt,
-        image: await dataUrlToBlob(receipt.image),
-      }))
-    )
+    receipts = serialised.map((receipt) => {
+      const { bytes, mimeType } = dataUrlToBytes(receipt.image)
+      return { ...receipt, image: bytes, mimeType }
+    })
   } catch {
     return {
       ok: false,

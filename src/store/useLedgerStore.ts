@@ -4,6 +4,11 @@ import { dexieRepository, type CropRepository } from '../data/repository'
 import { buildBackup, parseBackup, type ParseResult } from '../data/backup'
 import { applyPayment, removePayment } from '../domain/payments'
 
+/** A parse result plus how many photos storage refused. */
+export type ImportResult =
+  | (Extract<ParseResult, { ok: true }> & { photosFailed: number })
+  | Extract<ParseResult, { ok: false }>
+
 interface LedgerState {
   crops: Crop[]
   /** Expenses for the crop currently open. Not every crop's, ever. */
@@ -45,7 +50,7 @@ interface LedgerState {
   ) => Promise<void>
 
   exportBackup: () => Promise<Awaited<ReturnType<typeof buildBackup>>>
-  importBackup: (text: string) => Promise<ParseResult>
+  importBackup: (text: string) => Promise<ImportResult>
 }
 
 const repo: CropRepository = dexieRepository
@@ -186,14 +191,16 @@ export const useLedgerStore = create<LedgerState>((set, get) => ({
     const result = await parseBackup(text)
     if (!result.ok) return result
     try {
-      await repo.replaceAll(result.payload)
+      // The ledger commits on its own; photos are reported separately rather
+      // than being able to fail the whole restore.
+      const { photosFailed } = await repo.replaceAll(result.payload)
       const cropId = get().loadedCropId
       set({
         crops: await repo.listCrops(),
         expenses: cropId ? await repo.listExpenses(cropId) : [],
         error: null,
       })
-      return result
+      return { ...result, photosFailed }
     } catch (e) {
       return { ok: false, error: message(e) } satisfies ParseResult
     }

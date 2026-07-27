@@ -1,5 +1,16 @@
 import type { Crop, Expense, Receipt, Sale } from '../domain/types'
+import { receiptBytes } from '../lib/image'
 import { db } from './db'
+
+/**
+ * Photos written before the Blob-in-IndexedDB problem was found still hold a
+ * Blob. Reads normalise them to bytes so nothing downstream has to care, and
+ * any subsequent write stores the fixed shape.
+ */
+async function normalise(receipt: Receipt): Promise<Receipt> {
+  const { bytes, mimeType } = await receiptBytes(receipt.image, receipt.mimeType)
+  return { ...receipt, image: bytes, mimeType }
+}
 
 /**
  * The only surface the app uses to reach stored data. Components and the
@@ -25,7 +36,8 @@ export interface CropRepository {
 
   /** Whole-database read/replace, used by the JSON backup file. */
   exportAll(): Promise<BackupPayload>
-  replaceAll(payload: BackupPayload): Promise<void>
+  /** Resolves with how many photos could not be stored; the ledger is saved regardless. */
+  replaceAll(payload: BackupPayload): Promise<{ photosFailed: number }>
 }
 
 export interface BackupPayload {
@@ -92,7 +104,11 @@ export const dexieRepository: CropRepository = {
       .where('expenseId')
       .equals(expenseId)
       .toArray()
-    return receipts.sort((a, b) => a.addedAt.localeCompare(b.addedAt))
+    return Promise.all(
+      receipts
+        .sort((a, b) => a.addedAt.localeCompare(b.addedAt))
+        .map(normalise)
+    )
   },
 
   async saveReceipt(receipt) {
@@ -114,28 +130,39 @@ export const dexieRepository: CropRepository = {
       db.sales.toArray(),
       db.receipts.toArray(),
     ])
-    return { crops, expenses, sales, receipts }
+    return {
+      crops,
+      expenses,
+      sales,
+      receipts: await Promise.all(receipts.map(normalise)),
+    }
   },
 
+  /**
+   * Restores the ledger, then the photos, in two separate transactions.
+   *
+   * They were one transaction until a phone failed to store photos and took
+   * the entire restore down with it, leaving the user with nothing. The
+   * ledger is the irreplaceable part: it commits first and stays committed,
+   * and a photo failure is reported rather than thrown away with everything
+   * else.
+   */
   async replaceAll(payload) {
-    await db.transaction(
-      'rw',
-      db.crops,
-      db.expenses,
-      db.sales,
-      db.receipts,
-      async () => {
-        await Promise.all([
-          db.crops.clear(),
-          db.expenses.clear(),
-          db.sales.clear(),
-          db.receipts.clear(),
-        ])
-        await db.crops.bulkPut(payload.crops)
-        await db.expenses.bulkPut(payload.expenses)
-        await db.sales.bulkPut(payload.sales)
+    await db.transaction('rw', db.crops, db.expenses, db.sales, async () => {
+      await Promise.all([db.crops.clear(), db.expenses.clear(), db.sales.clear()])
+      await db.crops.bulkPut(payload.crops)
+      await db.expenses.bulkPut(payload.expenses)
+      await db.sales.bulkPut(payload.sales)
+    })
+
+    try {
+      await db.transaction('rw', db.receipts, async () => {
+        await db.receipts.clear()
         await db.receipts.bulkPut(payload.receipts)
-      }
-    )
+      })
+      return { photosFailed: 0 }
+    } catch {
+      return { photosFailed: payload.receipts.length }
+    }
   },
 }

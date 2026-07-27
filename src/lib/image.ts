@@ -8,7 +8,9 @@ export const MAX_EDGE = 1600
 export const JPEG_QUALITY = 0.7
 
 export interface CompressedImage {
-  blob: Blob
+  /** Raw JPEG bytes — the form receipts are stored in. See Receipt.image. */
+  bytes: ArrayBuffer
+  mimeType: string
   width: number
   height: number
 }
@@ -71,7 +73,14 @@ export async function compressImage(
     })
     if (!blob) throw new Error('Could not process that image.')
 
-    return { blob, width, height }
+    // Unwrapped to bytes immediately: a Blob is fine to produce, but must not
+    // be what reaches IndexedDB.
+    return {
+      bytes: await blob.arrayBuffer(),
+      mimeType: blob.type || 'image/jpeg',
+      width,
+      height,
+    }
   } finally {
     // Bitmaps hold decoded pixels outside the JS heap; on a phone, leaking a
     // few of these while adding photos is enough to get the tab killed.
@@ -84,24 +93,26 @@ export async function compressImage(
 const CHUNK = 0x8000
 
 /**
- * Blob → base64 data URL, for writing photos into the JSON backup file.
+ * Bytes → base64 data URL, for writing photos into the JSON backup file.
  *
  * Deliberately built on atob/btoa rather than FileReader: those exist in both
  * browsers and Node, so this stays directly testable, and the conversion is a
  * plain function instead of a callback wrapped in a promise.
  */
-export async function blobToDataUrl(blob: Blob): Promise<string> {
-  const bytes = new Uint8Array(await blob.arrayBuffer())
+export function bytesToDataUrl(image: ArrayBuffer, mimeType: string): string {
+  const bytes = new Uint8Array(image)
   let binary = ''
   for (let i = 0; i < bytes.length; i += CHUNK) {
     binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK))
   }
-  const type = blob.type || 'image/jpeg'
-  return `data:${type};base64,${btoa(binary)}`
+  return `data:${mimeType || 'image/jpeg'};base64,${btoa(binary)}`
 }
 
-/** data URL → Blob, for restoring photos from a backup. */
-export async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
+/** data URL → bytes, for restoring photos from a backup. */
+export function dataUrlToBytes(dataUrl: string): {
+  bytes: ArrayBuffer
+  mimeType: string
+} {
   const comma = dataUrl.indexOf(',')
   if (!dataUrl.startsWith('data:') || comma === -1) {
     throw new Error('Not a data URL.')
@@ -109,9 +120,27 @@ export async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
   const header = dataUrl.slice(5, comma)
   if (!header.includes('base64')) throw new Error('Unsupported image encoding.')
 
-  const type = header.split(';')[0] || 'image/jpeg'
+  const mimeType = header.split(';')[0] || 'image/jpeg'
   const binary = atob(dataUrl.slice(comma + 1))
   const bytes = new Uint8Array(binary.length)
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
-  return new Blob([bytes], { type })
+  return { bytes: bytes.buffer, mimeType }
+}
+
+/**
+ * Normalises a stored receipt to the byte form. Photos saved before the
+ * Blob-in-IndexedDB problem was found still hold a Blob, and those devices
+ * must keep working.
+ */
+export async function receiptBytes(
+  image: ArrayBuffer | Blob,
+  mimeType?: string
+): Promise<{ bytes: ArrayBuffer; mimeType: string }> {
+  if (image instanceof Blob) {
+    return {
+      bytes: await image.arrayBuffer(),
+      mimeType: image.type || mimeType || 'image/jpeg',
+    }
+  }
+  return { bytes: image, mimeType: mimeType || 'image/jpeg' }
 }

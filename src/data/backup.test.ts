@@ -149,17 +149,15 @@ describe('parseBackup with pre-credit backups', () => {
 })
 
 describe('receipts in backups', () => {
-  const jpeg = () =>
-    // Not a real JPEG, but a distinctive byte sequence is enough to prove the
-    // bytes survive the base64 round trip unchanged.
-    new Blob([new Uint8Array([0xff, 0xd8, 0xff, 0x00, 0x10, 0x7f, 0x80, 0xfe])], {
-      type: 'image/jpeg',
-    })
+  // Not a real JPEG, but a distinctive byte sequence is enough to prove the
+  // bytes survive the base64 round trip unchanged.
+  const sample = [0xff, 0xd8, 0xff, 0x00, 0x10, 0x7f, 0x80, 0xfe]
 
   const receipt = {
     id: 'r1',
     expenseId: 'e1',
-    image: jpeg(),
+    image: new Uint8Array(sample).buffer,
+    mimeType: 'image/jpeg',
     width: 1200,
     height: 1600,
     addedAt: '2026-06-02T10:00:00.000Z',
@@ -191,9 +189,8 @@ describe('receipts in backups', () => {
     if (!result.ok) return
 
     const restored = result.payload.receipts[0]!
-    expect(restored.image.type).toBe('image/jpeg')
-    const bytes = new Uint8Array(await restored.image.arrayBuffer())
-    expect([...bytes]).toEqual([0xff, 0xd8, 0xff, 0x00, 0x10, 0x7f, 0x80, 0xfe])
+    expect(restored.mimeType).toBe('image/jpeg')
+    expect([...new Uint8Array(restored.image)]).toEqual(sample)
   })
 
   it('keeps the metadata alongside the image', async () => {

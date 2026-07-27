@@ -1,26 +1,33 @@
 import { useEffect, useState } from 'react'
+import type { Receipt } from '../domain/types'
 
 /**
- * Turns a Blob into a URL an <img> can render, and revokes it afterwards.
+ * Turns a receipt's stored bytes into a URL an <img> can render, and revokes
+ * it afterwards.
  *
- * Object URLs pin the whole blob in memory until revoked, so a receipt list
- * that forgot to clean up would hold every photo it had ever shown — which on
- * a phone is a quick route to the tab being killed.
+ * The Blob is built here, at the last possible moment, and never goes near
+ * storage — see Receipt.image for why. Object URLs pin the whole blob in
+ * memory until revoked, so a receipt list that forgot to clean up would hold
+ * every photo it had ever shown, which on a phone is a quick route to the tab
+ * being killed.
  */
-export function useObjectUrl(blob: Blob | null | undefined): string | null {
+export function useReceiptUrl(receipt: Receipt | null | undefined): string | null {
   const [url, setUrl] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!blob) {
+    if (!receipt) {
       setUrl(null)
       return
     }
+    const blob = new Blob([receipt.image], {
+      type: receipt.mimeType || 'image/jpeg',
+    })
     const objectUrl = URL.createObjectURL(blob)
     setUrl(objectUrl)
     return () => {
       URL.revokeObjectURL(objectUrl)
     }
-  }, [blob])
+  }, [receipt])
 
   return url
 }

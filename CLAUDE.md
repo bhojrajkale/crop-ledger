@@ -114,10 +114,17 @@ blobs to answer it.
 
 Other invariants here:
 
-- Images are stored as **Blobs**, not base64 strings — a third smaller, and no
-  giant string sitting in the JS heap. `blobToDataUrl` converts only at the
-  backup boundary, and is built on `atob`/`btoa` rather than `FileReader` so it
-  works in Node and stays directly testable.
+- **Never put a Blob in IndexedDB.** `Receipt.image` is an `ArrayBuffer` plus a
+  `mimeType`, and a Blob is rebuilt only for display in `useReceiptUrl`. iOS
+  Safari fails to store a Blob built from raw bytes — *"Error preparing
+  Blob/File data to be stored in object store"* — which broke restoring a
+  backup on a phone while capturing a photo kept working, because a Blob
+  straight from `canvas.toBlob()` happens to survive. Bytes are reliable
+  everywhere; this is not a preference. `receiptBytes()` normalises the older
+  Blob rows on read so upgrading devices keep working.
+- `bytesToDataUrl` converts only at the backup boundary, and is built on
+  `atob`/`btoa` rather than `FileReader` so it works in Node and stays
+  directly testable.
 - Everything goes through `compressImage()` first. Phone cameras produce 3–12 MB
   files and the quota is shared with the ledger itself. `MAX_EDGE` is
   deliberately 1600, not thumbnail-sized: the numbers on a bill have to stay
@@ -128,7 +135,7 @@ Other invariants here:
 - The expense form stages photos in component state and writes them only on
   save, so cancelling never leaves orphans, and a brand-new expense can collect
   photos before its row exists (hence the `draftId`).
-- Object URLs must be revoked — use `useObjectUrl`. A leak here pins every photo
+- Object URLs must be revoked — use `useReceiptUrl`. A leak here pins every photo
   ever displayed in memory, which on a phone gets the tab killed.
 
 ## Marathi is the default language
@@ -170,7 +177,13 @@ forgotten:
   deleted data is genuinely unrecoverable.
 - **Importing a backup replaces everything.** `parseBackup()` validates the whole
   file and refuses it entirely if any record is damaged — never partially apply
-  an import.
+  a *damaged file*.
+- **But the ledger and the photos commit in separate transactions.** They were
+  one until a phone failed to store photos and took the whole restore down with
+  it, leaving the user with nothing. A storage failure is not a damaged file:
+  the crops and expenses are valid and irreplaceable, so they commit first and
+  stay committed, and `replaceAll` reports `photosFailed` instead of throwing
+  the ledger away with the images.
 
 The `sales` table exists in Dexie schema version 1 despite being unused, so
 adding revenue later needs no migration on devices that already hold data.

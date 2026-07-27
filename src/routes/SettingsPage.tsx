@@ -67,16 +67,24 @@ export function SettingsPage() {
       result.ok
         ? {
             ok: true,
-            text: t('restored', {
-              crops: t('crops', { count: result.crops }),
-              expenses: t('expenses', { count: result.expenses }),
-              photos:
-                result.receipts > 0
-                  ? t('restoredPhotos', {
-                      photos: t('photos', { count: result.receipts }),
-                    })
-                  : '',
-            }),
+            text:
+              t('restored', {
+                crops: t('crops', { count: result.crops }),
+                expenses: t('expenses', { count: result.expenses }),
+                photos:
+                  result.receipts > 0 && result.photosFailed === 0
+                    ? t('restoredPhotos', {
+                        photos: t('photos', { count: result.receipts }),
+                      })
+                    : '',
+              }) +
+              // The ledger is safe either way; say so plainly rather than
+              // letting a photo problem read as a failed restore.
+              (result.photosFailed > 0
+                ? ` ${t('photosNotRestored', {
+                    photos: t('photos', { count: result.photosFailed }),
+                  })}`
+                : ''),
           }
         : { ok: false, text: result.error }
     )

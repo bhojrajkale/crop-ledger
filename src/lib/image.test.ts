@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { blobToDataUrl, dataUrlToBlob, MAX_EDGE, targetSize } from './image'
+import {
+  bytesToDataUrl,
+  dataUrlToBytes,
+  MAX_EDGE,
+  receiptBytes,
+  targetSize,
+} from './image'
 
 describe('targetSize', () => {
   it('leaves an image that is already small enough alone', () => {
@@ -37,36 +43,60 @@ describe('targetSize', () => {
   })
 })
 
-describe('blobToDataUrl / dataUrlToBlob', () => {
-  const bytes = [0xff, 0xd8, 0xff, 0x00, 0x42, 0x7f, 0x80, 0xfe]
+describe('bytesToDataUrl / dataUrlToBytes', () => {
+  const sample = [0xff, 0xd8, 0xff, 0x00, 0x42, 0x7f, 0x80, 0xfe]
+  const buffer = () => new Uint8Array(sample).buffer
 
-  it('round-trips bytes exactly', async () => {
-    const blob = new Blob([new Uint8Array(bytes)], { type: 'image/jpeg' })
-    const restored = await dataUrlToBlob(await blobToDataUrl(blob))
-    expect([...new Uint8Array(await restored.arrayBuffer())]).toEqual(bytes)
+  it('round-trips bytes exactly', () => {
+    const { bytes } = dataUrlToBytes(bytesToDataUrl(buffer(), 'image/jpeg'))
+    expect([...new Uint8Array(bytes)]).toEqual(sample)
   })
 
-  it('preserves the mime type', async () => {
-    const blob = new Blob([new Uint8Array(bytes)], { type: 'image/png' })
-    const url = await blobToDataUrl(blob)
+  it('preserves the mime type', () => {
+    const url = bytesToDataUrl(buffer(), 'image/png')
     expect(url.startsWith('data:image/png;base64,')).toBe(true)
-    expect((await dataUrlToBlob(url)).type).toBe('image/png')
+    expect(dataUrlToBytes(url).mimeType).toBe('image/png')
   })
 
-  it('handles a blob large enough to need chunking', async () => {
+  it('handles an image large enough to need chunking', () => {
     // Spreading this many bytes into fromCharCode at once would blow the stack.
     const big = new Uint8Array(200_000).map((_, i) => i % 256)
-    const restored = await dataUrlToBlob(
-      await blobToDataUrl(new Blob([big], { type: 'image/jpeg' }))
-    )
-    const out = new Uint8Array(await restored.arrayBuffer())
+    const { bytes } = dataUrlToBytes(bytesToDataUrl(big.buffer, 'image/jpeg'))
+    const out = new Uint8Array(bytes)
     expect(out.length).toBe(big.length)
     expect(out[0]).toBe(big[0])
     expect(out[199_999]).toBe(big[199_999])
   })
 
-  it('rejects something that is not a data URL', async () => {
-    await expect(dataUrlToBlob('https://example.com/a.jpg')).rejects.toThrow()
-    await expect(dataUrlToBlob('data:image/jpeg,notbase64')).rejects.toThrow()
+  it('falls back to JPEG when no type is given', () => {
+    expect(bytesToDataUrl(buffer(), '')).toMatch(/^data:image\/jpeg;base64,/)
+  })
+
+  it('rejects something that is not a data URL', () => {
+    expect(() => dataUrlToBytes('https://example.com/a.jpg')).toThrow()
+    expect(() => dataUrlToBytes('data:image/jpeg,notbase64')).toThrow()
+  })
+})
+
+describe('receiptBytes', () => {
+  const sample = [1, 2, 3, 250]
+
+  it('passes an ArrayBuffer straight through', async () => {
+    const buffer = new Uint8Array(sample).buffer
+    const result = await receiptBytes(buffer, 'image/jpeg')
+    expect(result.bytes).toBe(buffer)
+    expect(result.mimeType).toBe('image/jpeg')
+  })
+
+  it('unwraps a legacy Blob, so photos stored before the fix still open', async () => {
+    const blob = new Blob([new Uint8Array(sample)], { type: 'image/png' })
+    const result = await receiptBytes(blob)
+    expect([...new Uint8Array(result.bytes)]).toEqual(sample)
+    expect(result.mimeType).toBe('image/png')
+  })
+
+  it('defaults the type when a legacy Blob has none', async () => {
+    const blob = new Blob([new Uint8Array(sample)])
+    expect((await receiptBytes(blob)).mimeType).toBe('image/jpeg')
   })
 })

@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { Button } from '../ui/Button'
-import { useObjectUrl } from '../../lib/useObjectUrl'
+import { useReceiptUrl } from '../../lib/useObjectUrl'
 import { compressImage, isImageFile } from '../../lib/image'
 import { newId } from '../../lib/id'
 import { formatBytes } from '../../lib/format'
@@ -9,11 +9,12 @@ import type { Receipt } from '../../domain/types'
 
 /** Keeps one bad photo from blocking the rest of a multi-file selection. */
 async function toReceipt(file: File, expenseId: string): Promise<Receipt> {
-  const { blob, width, height } = await compressImage(file)
+  const { bytes, mimeType, width, height } = await compressImage(file)
   return {
     id: newId(),
     expenseId,
-    image: blob,
+    image: bytes,
+    mimeType,
     width,
     height,
     addedAt: new Date().toISOString(),
@@ -70,7 +71,7 @@ export function ReceiptPicker({
     if (source) source.value = ''
   }
 
-  const totalBytes = receipts.reduce((sum, r) => sum + r.image.size, 0)
+  const totalBytes = receipts.reduce((sum, r) => sum + r.image.byteLength, 0)
 
   return (
     <fieldset>
@@ -155,7 +156,7 @@ function Thumbnail({
   onRemove: () => void
 }) {
   const t = useT()
-  const url = useObjectUrl(receipt.image)
+  const url = useReceiptUrl(receipt)
 
   return (
     <div className="relative">
