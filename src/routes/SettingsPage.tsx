@@ -3,8 +3,7 @@ import { Link } from 'react-router'
 import { useLedgerStore } from '../store/useLedgerStore'
 import { Button } from '../components/ui/Button'
 import { Card, SectionTitle } from '../components/ui/Card'
-import { downloadBackup, serialiseBackup, backupFilename } from '../data/backup'
-import { canShareBackup, shareBackup } from '../lib/share'
+import { useBackupExport } from '../lib/useBackupExport'
 import { buildDate, versionLabel } from '../lib/version'
 import { Chip } from '../components/ui/Chip'
 import {
@@ -16,7 +15,6 @@ import {
 } from '../i18n'
 
 export function SettingsPage() {
-  const exportBackup = useLedgerStore((s) => s.exportBackup)
   const importBackup = useLedgerStore((s) => s.importBackup)
   const crops = useLedgerStore((s) => s.crops)
   const fileInput = useRef<HTMLInputElement>(null)
@@ -25,9 +23,7 @@ export function SettingsPage() {
   const setLanguage = useLanguageStore((s) => s.setLanguage)
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null)
   const [updateStatus, setUpdateStatus] = useState<string>()
-  // Probed once: rendering a Share button the platform will refuse is worse
-  // than not offering it.
-  const [canShare] = useState(() => canShareBackup())
+  const { canShare, busy, share, download } = useBackupExport()
 
   /**
    * Asks the service worker to re-check for a new build. If one exists, the
@@ -56,31 +52,11 @@ export function SettingsPage() {
     }
   }
 
-  const onExport = async () => {
-    try {
-      downloadBackup(await exportBackup())
-      setStatus({ ok: true, text: t('backupDownloaded') })
-    } catch {
-      setStatus({ ok: false, text: t('backupFailed') })
-    }
-  }
-
-  const onShare = async () => {
-    try {
-      const backup = await exportBackup()
-      const outcome = await shareBackup(serialiseBackup(backup), backupFilename())
-      if (outcome === 'shared') {
-        setStatus({ ok: true, text: t('backupShared') })
-      } else if (outcome === 'unsupported') {
-        // Never leave the user with nothing: if the sheet would not open,
-        // hand them the file the ordinary way and say what happened.
-        downloadBackup(backup)
-        setStatus({ ok: true, text: t('sharedInsteadDownloaded') })
-      }
-      // 'cancelled' is a deliberate choice, not a failure — say nothing.
-    } catch {
-      setStatus({ ok: false, text: t('backupFailed') })
-    }
+  // A null outcome means the user dismissed the share sheet; leave whatever
+  // was on screen alone rather than clearing it for a non-event.
+  const runExport = async (action: typeof share) => {
+    const outcome = await action()
+    if (outcome) setStatus(outcome)
   }
 
   const onImport = async (file: File) => {
@@ -122,7 +98,7 @@ export function SettingsPage() {
       >
         {t('allCrops')}
       </Link>
-      <h1 className="text-2xl font-bold text-[var(--ink)] mb-1 pr-12">
+      <h1 className="text-2xl font-bold text-[var(--ink)] mb-1 pr-24">
         {t('backupAndRestore')}
       </h1>
       <p className="text-sm text-[var(--muted)] mb-6">{t('backupIntro')}</p>
@@ -165,13 +141,18 @@ export function SettingsPage() {
         </p>
         <div className="flex flex-wrap gap-2">
           {canShare ? (
-            <Button variant="primary" onClick={() => void onShare()}>
+            <Button
+              variant="primary"
+              disabled={busy}
+              onClick={() => void runExport(share)}
+            >
               {t('shareBackup')}
             </Button>
           ) : null}
           <Button
             variant={canShare ? 'secondary' : 'primary'}
-            onClick={() => void onExport()}
+            disabled={busy}
+            onClick={() => void runExport(download)}
           >
             {t('downloadBackup')}
           </Button>

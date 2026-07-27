@@ -53,7 +53,7 @@ export function CropLayout() {
 
   return (
     <div className="max-w-2xl mx-auto pb-20">
-      <header className="px-4 pt-[max(1rem,env(safe-area-inset-top))] pr-14">
+      <header className="px-4 pt-[max(1rem,env(safe-area-inset-top))] pr-24">
         <Link
           to="/"
           className="text-sm text-[var(--muted)] inline-block mb-2 active:scale-95 transition-transform"
