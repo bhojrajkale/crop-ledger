@@ -27,14 +27,12 @@ afterEach(() => {
 describe('shareableType', () => {
   it('prefers the real JSON type when the platform accepts it', () => {
     mockNavigator({ acceptTypes: ['application/json', 'text/plain'] })
-    expect(shareableType()).toBe('application/json')
+    expect(shareableType()).toEqual({ mime: 'application/json', extension: '.json' })
   })
 
   it('falls back to plain text when JSON is refused', () => {
-    // Safari restricts shareable file types; the .json filename still gets
-    // the file saved under the right name.
     mockNavigator({ acceptTypes: ['text/plain'] })
-    expect(shareableType()).toBe('text/plain')
+    expect(shareableType()).toEqual({ mime: 'text/plain', extension: '.txt' })
   })
 
   it('reports nothing shareable when no type is accepted', () => {
@@ -66,6 +64,30 @@ describe('shareBackup', () => {
     expect(data.files![0]!.name).toBe('crop-ledger-backup-2026-07-26.json')
   })
 
+  it('shares files alone, with no title or text', async () => {
+    // iOS composes a message-oriented sheet when a share carries both, and
+    // drops the document actions — "Save to Files" among them.
+    const spy = vi.fn((_data: ShareData) => Promise.resolve())
+    vi.stubGlobal('navigator', { canShare: () => true, share: spy })
+    await shareBackup('{}', 'b.json')
+    expect(Object.keys(spy.mock.calls[0]![0])).toEqual(['files'])
+  })
+
+  it('renames the file to match the type when falling back to text', async () => {
+    // A text/plain item named .json is a mismatch iOS can treat as loose text
+    // rather than a document.
+    const spy = vi.fn((_data: ShareData) => Promise.resolve())
+    vi.stubGlobal('navigator', {
+      canShare: ({ files }: { files?: File[] }) =>
+        !!files?.every((f) => f.type === 'text/plain'),
+      share: spy,
+    })
+    await shareBackup('{}', 'crop-ledger-backup-2026-07-26.json')
+    const file = spy.mock.calls[0]![0].files![0]!
+    expect(file.name).toBe('crop-ledger-backup-2026-07-26.txt')
+    expect(file.type).toBe('text/plain')
+  })
+
   it('treats dismissing the sheet as a choice, not a failure', async () => {
     mockNavigator({
       acceptTypes: ['application/json'],
@@ -85,7 +107,7 @@ describe('shareBackup', () => {
   })
 
   it('reports unsupported without calling share when no type is accepted', async () => {
-    const spy = vi.fn(() => Promise.resolve())
+    const spy = vi.fn((_data: ShareData) => Promise.resolve())
     vi.stubGlobal('navigator', { canShare: () => false, share: spy })
     expect(await shareBackup('{}', 'b.json')).toBe('unsupported')
     expect(spy).not.toHaveBeenCalled()

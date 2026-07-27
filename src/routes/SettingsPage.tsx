@@ -4,6 +4,7 @@ import { useLedgerStore } from '../store/useLedgerStore'
 import { Button } from '../components/ui/Button'
 import { Card, SectionTitle } from '../components/ui/Card'
 import { useBackupExport } from '../lib/useBackupExport'
+import { shareableType } from '../lib/share'
 import { buildDate, versionLabel } from '../lib/version'
 import { Chip } from '../components/ui/Chip'
 import {
@@ -171,7 +172,7 @@ export function SettingsPage() {
         <input
           ref={fileInput}
           type="file"
-          accept="application/json,.json"
+          accept="application/json,text/plain,.json,.txt"
           className="hidden"
           onChange={(e) => {
             const file = e.target.files?.[0]
@@ -189,6 +190,14 @@ export function SettingsPage() {
         <p className="font-medium text-[var(--ink)]">{versionLabel()}</p>
         <p className="text-sm text-[var(--muted)] mt-0.5">
           {t('builtOn', { date: buildDate(intlLocale(language)) })}
+        </p>
+        {/* Which file format this device's share sheet accepts. Only useful
+            when a share behaves unexpectedly, but that is exactly when there
+            is no other way to find out. */}
+        <p className="text-xs text-[var(--faint)] mt-0.5">
+          {t('shareFormat', {
+            format: shareableType()?.mime ?? t('shareFormatNone'),
+          })}
         </p>
         <p className="text-sm text-[var(--muted)] mt-3">
           {t('versionExplainer')}

@@ -264,6 +264,8 @@ export const mr: Record<keyof typeof en, string> = {
   builtOn: '{date} रोजी तयार',
   versionExplainer:
     'ॲप स्वतःची एक प्रत तुमच्या फोनवर ठेवते म्हणजे इंटरनेटशिवायही चालते, त्यामुळे नवीन आवृत्ती यायला थोडा वेळ लागू शकतो. एखादा बदल दिसत नसेल तर इथे तपासा.',
+  shareFormat: 'शेअर स्वरूप: {format}',
+  shareFormatNone: 'उपलब्ध नाही',
   checkForUpdates: 'नवीन आवृत्ती तपासा',
   checking: 'तपासत आहे…',
   noServiceWorker: 'हा ब्राउझर आपोआप तपासू शकत नाही — फक्त पुन्हा लोड करा.',

@@ -8,25 +8,32 @@ export type ShareOutcome = 'shared' | 'cancelled' | 'unsupported'
 
 /**
  * Safari restricts which file types the share sheet will accept, and JSON is
- * not reliably among them. When the real type is refused we retry as plain
- * text: the filename still ends in .json, so Files saves it under the right
- * name and it imports back cleanly — only the type advertised to the sheet
- * differs. If neither is allowed, callers fall back to a normal download.
+ * not reliably among them, so plain text is the fallback.
+ *
+ * The extension follows the type rather than staying .json. iOS derives a
+ * file's identity from its MIME type, and an item declared text/plain but
+ * named .json is a mismatch it can present as loose text rather than a
+ * document — which is exactly when "Save to Files", and so iCloud Drive,
+ * drops out of the sheet. Importing accepts both extensions, so a .txt
+ * backup restores just as well.
  */
-const TYPES = ['application/json', 'text/plain']
+const TYPES: { mime: string; extension: string }[] = [
+  { mime: 'application/json', extension: '.json' },
+  { mime: 'text/plain', extension: '.txt' },
+]
 
-function canShareType(type: string): boolean {
+function canShareType({ mime, extension }: { mime: string; extension: string }) {
   if (typeof navigator === 'undefined' || !navigator.canShare) return false
   try {
-    const probe = new File(['{}'], 'probe.json', { type })
+    const probe = new File(['{}'], `probe${extension}`, { type: mime })
     return navigator.canShare({ files: [probe] })
   } catch {
     return false
   }
 }
 
-/** The type the share sheet will take, or null if it will not take a file. */
-export function shareableType(): string | null {
+/** The type and extension the share sheet will take, or null if none. */
+export function shareableType(): { mime: string; extension: string } | null {
   return TYPES.find(canShareType) ?? null
 }
 
@@ -51,11 +58,15 @@ export async function shareBackup(
   const type = shareableType()
   if (!type) return 'unsupported'
 
+  // Rename to match the type actually being shared, so the file iOS hands to
+  // Files carries the extension its content really has.
+  const named = filename.replace(/\.json$/, type.extension)
+
   try {
-    await navigator.share({
-      files: [new File([contents], filename, { type })],
-      title: filename,
-    })
+    // Files only — no title or text alongside them. iOS composes a different,
+    // message-oriented sheet when a share carries both, and the document
+    // actions ("Save to Files") are the ones that get dropped.
+    await navigator.share({ files: [new File([contents], named, { type: type.mime })] })
     return 'shared'
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {

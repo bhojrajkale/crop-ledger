@@ -263,6 +263,8 @@ export const en = {
   builtOn: 'Built {date}',
   versionExplainer:
     'The app keeps a copy of itself on your device so it works offline, so a new version can take a moment to arrive. Check here if you are expecting a change and cannot see it.',
+  shareFormat: 'Share format: {format}',
+  shareFormatNone: 'not supported',
   checkForUpdates: 'Check for updates',
   checking: 'Checking…',
   noServiceWorker: 'This browser cannot check automatically — just reload.',
