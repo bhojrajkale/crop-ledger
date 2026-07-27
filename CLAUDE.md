@@ -131,6 +131,33 @@ Other invariants here:
 - Object URLs must be revoked — use `useObjectUrl`. A leak here pins every photo
   ever displayed in memory, which on a phone gets the tab killed.
 
+## Marathi is the default language
+
+`src/i18n/` holds a flat catalogue per language. `mr.ts` is typed as
+`Record<keyof typeof en, string>`, so adding an English key without translating
+it is a **build error** — that type annotation is the mechanism, don't loosen
+it. `i18n.test.ts` additionally catches what types cannot: a Marathi value left
+identical to its English source, and placeholders that differ between
+languages.
+
+- **Never hardcode a user-visible string in a component.** Add a key and use
+  `const t = useT()`. Category labels live in the domain layer as `labelKey`,
+  resolved by the caller — `src/domain/` must not know what language the UI is
+  in.
+- **Pluralisation lives in the catalogue**, as `key` plus an optional `key_one`
+  picked when `count === 1`. English suffix rules do not apply to Marathi, so
+  there is no `pluralize()` helper any more.
+- **Money always formats with `en-IN`**, in every language. `mr-IN` drops the
+  Indian lakh grouping (₹120,000 instead of ₹1,20,000). Only *dates* take a
+  locale, via `intlLocale()`, which appends `-u-nu-latn` so Marathi gets its
+  month names with Latin digits — Devanagari digits would not match the figures
+  printed on the shop's bill.
+- The settlement row uses `paysConnector` between two names: "pays" in English,
+  an arrow in Marathi, because Marathi needs postpositions on both names for a
+  verb to read naturally. The section heading carries the meaning.
+- The font stack names Devanagari faces explicitly. An unshaped conjunct is
+  unreadable, not merely ugly.
+
 ## Storage is device-local and has no server copy
 
 There is no cloud backup and no sync. Consequences that keep biting if

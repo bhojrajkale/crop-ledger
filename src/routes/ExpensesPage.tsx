@@ -14,6 +14,7 @@ import { amountOutstanding, isPending } from '../domain/payments'
 import { ReceiptViewer } from '../components/expenses/ReceiptViewer'
 import type { Receipt } from '../domain/types'
 import { formatDate } from '../lib/format'
+import { intlLocale, useLanguage, useT } from '../i18n'
 import type { Expense } from '../domain/types'
 
 export function ExpensesPage() {
@@ -22,6 +23,7 @@ export function ExpensesPage() {
   const expenses = useLedgerStore((s) => s.expenses)
   const deleteExpense = useLedgerStore((s) => s.deleteExpense)
   const listReceipts = useLedgerStore((s) => s.listReceipts)
+  const t = useT()
 
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState<Expense | null>(null)
@@ -54,29 +56,29 @@ export function ExpensesPage() {
       if (pendingOnly && !isPending(e)) return false
       if (categoryFilter && e.category !== categoryFilter) return false
       if (!query) return true
-      const label = categoryLabel(e.category, e.customCategory).toLowerCase()
+      const label = categoryLabel(e.category, t, e.customCategory).toLowerCase()
       return (
         e.notes.toLowerCase().includes(query) ||
         label.includes(query) ||
         (e.owedTo ?? '').toLowerCase().includes(query)
       )
     })
-  }, [expenses, search, categoryFilter, pendingOnly])
+  }, [expenses, search, categoryFilter, pendingOnly, t])
 
   if (!crop) return null
 
   const memberName = (id: string) =>
-    crop.members.find((m) => m.id === id)?.name ?? 'Removed member'
+    crop.members.find((m) => m.id === id)?.name ?? t('removedMember')
 
   if (crop.members.length === 0) {
     return (
       <EmptyState
         emoji="👥"
-        title="Add people first"
-        description="An expense needs someone who paid it and someone it belongs to, so start by adding the people involved in this crop."
+        title={t('addPeopleFirstTitle')}
+        description={t('addPeopleFirstBody')}
         action={
           <Link to={`/crop/${crop.id}/members`}>
-            <Button variant="primary">Add people</Button>
+            <Button variant="primary">{t('addPeople')}</Button>
           </Link>
         }
       />
@@ -88,33 +90,33 @@ export function ExpensesPage() {
       <Card className="flex items-center justify-between gap-4">
         <div>
           <p className="text-xs uppercase tracking-wider text-[var(--faint)]">
-            Total spent
+            {t('totalSpent')}
           </p>
           <p className="text-2xl font-bold text-[var(--ink)] tnum mt-0.5">
             {formatINR(totals.total)}
           </p>
           <p className="text-sm text-[var(--muted)] mt-0.5 tnum">
-            {formatINR(totals.perHead)} per head
+            {t('perHead', { amount: formatINR(totals.perHead) })}
           </p>
           {totals.outstanding > 0 ? (
             <p className="text-sm mt-1 tnum text-[var(--warning)]">
-              {formatINR(totals.outstanding)} still to pay
+              {t('stillToPayShort', { amount: formatINR(totals.outstanding) })}
             </p>
           ) : null}
         </div>
         <Button variant="primary" onClick={() => setAdding(true)}>
-          + Add
+          {t('addShort')}
         </Button>
       </Card>
 
       {expenses.length === 0 ? (
         <EmptyState
           emoji="🧾"
-          title="No expenses yet"
-          description="Record what's been spent on this crop — seeds, labour, fuel — and who paid for it."
+          title={t('noExpensesTitle')}
+          description={t('noExpensesBody')}
           action={
             <Button variant="primary" onClick={() => setAdding(true)}>
-              Add the first expense
+              {t('addFirstExpense')}
             </Button>
           }
         />
@@ -124,8 +126,8 @@ export function ExpensesPage() {
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search notes or category"
-            aria-label="Search expenses"
+            placeholder={t('searchExpenses')}
+            aria-label={t('searchExpenses')}
             className="w-full min-h-11 px-3 rounded-xl bg-[var(--surface-sunken)] border border-[var(--hairline)] text-[var(--ink)] placeholder:text-[var(--faint)] outline-none focus:border-[var(--primary-border)]"
           />
 
@@ -138,7 +140,7 @@ export function ExpensesPage() {
                   onClick={() => setPendingOnly(!pendingOnly)}
                 >
                   <span aria-hidden="true">⏳</span>
-                  Pending ({pendingCount})
+                  {t('pendingFilter', { count: pendingCount })}
                 </Chip>
               ) : null}
               {presentCategories.map((id) => {
@@ -153,7 +155,7 @@ export function ExpensesPage() {
                     }
                   >
                     <span aria-hidden="true">{category.emoji}</span>
-                    {category.label}
+                    {t(category.labelKey)}
                   </Chip>
                 )
               })}
@@ -162,7 +164,7 @@ export function ExpensesPage() {
 
           {visible.length === 0 ? (
             <p className="text-sm text-[var(--muted)] text-center py-8">
-              Nothing matches that.
+              {t('nothingMatches')}
             </p>
           ) : (
             <ul className="space-y-2">
@@ -206,11 +208,11 @@ export function ExpensesPage() {
         onOpenChange={(open) => {
           if (!open) setRemoving(null)
         }}
-        title="Delete this expense?"
+        title={t('deleteExpenseTitle')}
         footer={
           <div className="flex gap-2">
             <Button fullWidth onClick={() => setRemoving(null)}>
-              Cancel
+              {t('cancel')}
             </Button>
             <Button
               variant="danger"
@@ -220,14 +222,15 @@ export function ExpensesPage() {
                 setRemoving(null)
               }}
             >
-              Delete
+              {t('delete')}
             </Button>
           </div>
         }
       >
         <p className="text-sm text-[var(--muted)]">
-          {removing ? formatINR(removing.amount) : ''} will be removed from this
-          crop&apos;s total and the settlement will be recalculated.
+          {t('deleteExpenseBody', {
+            amount: removing ? formatINR(removing.amount) : '',
+          })}
         </p>
       </Modal>
     </div>
@@ -247,6 +250,8 @@ function ExpenseRow({
   onDelete: () => void
   onViewReceipts: () => void
 }) {
+  const t = useT()
+  const locale = intlLocale(useLanguage())
   const category = getCategory(expense.category)
   const shares = resolveSplit(expense)
   const payers = [...new Set(expense.payments.map((p) => p.memberId))]
@@ -258,10 +263,10 @@ function ExpenseRow({
 
   const paidLabel =
     payers.length === 0
-      ? 'Unpaid'
+      ? t('unpaid')
       : payers.length === 1
-        ? `${memberName(payers[0]!)} paid`
-        : `${payers.length} part-payments`
+        ? t('memberPaid', { name: memberName(payers[0]!) })
+        : t('nPartPayments', { count: payers.length })
 
   return (
     <Card className="flex items-start gap-3">
@@ -276,7 +281,7 @@ function ExpenseRow({
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline justify-between gap-3">
           <p className="font-medium text-[var(--ink)] truncate">
-            {categoryLabel(expense.category, expense.customCategory)}
+            {categoryLabel(expense.category, t, expense.customCategory)}
           </p>
           <p className="font-semibold text-[var(--ink)] tnum shrink-0">
             {formatINR(expense.amount)}
@@ -287,19 +292,19 @@ function ExpenseRow({
           {paidLabel} ·{' '}
           {soleOwer ? (
             <span className="text-[var(--warning)]">
-              {memberName(soleOwer)} owes it all
+              {t('owesItAll', { name: memberName(soleOwer) })}
             </span>
           ) : expense.splitAmounts?.length ? (
-            `split ${shares.length} ways (custom)`
+            t('splitNWaysCustom', { count: shares.length })
           ) : (
-            `split ${shares.length} ways`
+            t('splitNWays', { count: shares.length })
           )}
         </p>
 
         {outstanding > 0 ? (
           <p className="inline-flex items-center gap-1.5 text-xs font-medium mt-1.5 rounded-full px-2 py-1 bg-[var(--warning-tint)] text-[var(--warning)]">
             <span aria-hidden="true">⏳</span>
-            {formatINR(outstanding)} pending
+            {t('amountPending', { amount: formatINR(outstanding) })}
             {expense.owedTo ? ` · ${expense.owedTo}` : ''}
           </p>
         ) : null}
@@ -312,7 +317,7 @@ function ExpenseRow({
 
         <div className="flex items-center gap-3 mt-2">
           <span className="text-xs text-[var(--faint)]">
-            {formatDate(expense.date)}
+            {formatDate(expense.date, locale)}
           </span>
           {expense.receiptCount ? (
             <button
@@ -320,8 +325,10 @@ function ExpenseRow({
               onClick={onViewReceipts}
               className="text-xs text-[var(--primary)] font-medium active:scale-95 transition-transform"
             >
-              📷 {expense.receiptCount > 1 ? expense.receiptCount : ''}
-              {expense.receiptCount > 1 ? ' photos' : 'Receipt'}
+              📷{' '}
+              {expense.receiptCount > 1
+                ? t('viewNPhotos', { count: expense.receiptCount })
+                : t('viewReceipt')}
             </button>
           ) : null}
           <button
@@ -329,14 +336,14 @@ function ExpenseRow({
             onClick={onEdit}
             className="text-xs text-[var(--primary)] font-medium active:scale-95 transition-transform"
           >
-            Edit
+            {t('edit')}
           </button>
           <button
             type="button"
             onClick={onDelete}
             className="text-xs text-[var(--negative)] font-medium active:scale-95 transition-transform"
           >
-            Delete
+            {t('delete')}
           </button>
         </div>
       </div>

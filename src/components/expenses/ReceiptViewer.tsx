@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useObjectUrl } from '../../lib/useObjectUrl'
+import { useT } from '../../i18n'
 import type { Receipt } from '../../domain/types'
 
 /**
@@ -17,6 +18,7 @@ export function ReceiptViewer({
   startIndex?: number
   onClose: () => void
 }) {
+  const t = useT()
   const [index, setIndex] = useState(startIndex)
   const current = receipts[Math.min(index, receipts.length - 1)]
   const url = useObjectUrl(current?.image)
@@ -47,17 +49,19 @@ export function ReceiptViewer({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Receipt"
+      aria-label={t('receipt')}
       className="fixed inset-0 z-[400] bg-black/95 flex flex-col"
     >
       <div className="flex items-center justify-between p-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-white">
         <span className="text-sm tabular-nums">
-          {receipts.length > 1 ? `${index + 1} of ${receipts.length}` : 'Receipt'}
+          {receipts.length > 1
+            ? t('receiptOf', { current: index + 1, total: receipts.length })
+            : t('receipt')}
         </span>
         <button
           type="button"
           onClick={onClose}
-          aria-label="Close receipt"
+          aria-label={t('closeReceipt')}
           className="size-10 rounded-full bg-white/15 text-xl leading-none active:scale-95 transition-transform"
         >
           ×
@@ -68,11 +72,11 @@ export function ReceiptViewer({
         {url ? (
           <img
             src={url}
-            alt="Receipt"
+            alt={t('receipt')}
             className="max-h-full max-w-full object-contain"
           />
         ) : (
-          <p className="text-white/70 text-sm">Loading…</p>
+          <p className="text-white/70 text-sm">{t('loading')}</p>
         )}
       </div>
 
@@ -84,7 +88,7 @@ export function ReceiptViewer({
             disabled={index === 0}
             className="min-h-11 px-5 rounded-full bg-white/15 text-white disabled:opacity-30 active:scale-95 transition-transform"
           >
-            ← Prev
+            {t('prev')}
           </button>
           <button
             type="button"
@@ -92,7 +96,7 @@ export function ReceiptViewer({
             disabled={index === receipts.length - 1}
             className="min-h-11 px-5 rounded-full bg-white/15 text-white disabled:opacity-30 active:scale-95 transition-transform"
           >
-            Next →
+            {t('next')}
           </button>
         </div>
       ) : null}

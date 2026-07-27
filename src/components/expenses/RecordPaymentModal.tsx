@@ -9,6 +9,7 @@ import { formatAmount, formatINR, parseRupees } from '../../domain/money'
 import { amountOutstanding } from '../../domain/payments'
 import { newId } from '../../lib/id'
 import { formatDate, todayISO } from '../../lib/format'
+import { intlLocale, useLanguage, useT } from '../../i18n'
 import type { Expense, Member } from '../../domain/types'
 
 export function RecordPaymentModal({
@@ -22,6 +23,8 @@ export function RecordPaymentModal({
 }) {
   const recordPayment = useLedgerStore((s) => s.recordPayment)
   const undoPayment = useLedgerStore((s) => s.undoPayment)
+  const t = useT()
+  const locale = intlLocale(useLanguage())
 
   const [memberId, setMemberId] = useState('')
   const [amountText, setAmountText] = useState('')
@@ -41,23 +44,21 @@ export function RecordPaymentModal({
   }, [expense, members])
 
   const memberName = (id: string) =>
-    members.find((m) => m.id === id)?.name ?? 'Removed member'
+    members.find((m) => m.id === id)?.name ?? t('removedMember')
 
   const submit = async () => {
     if (!expense) return
     const amount = parseRupees(amountText)
     if (amount === null || amount <= 0) {
-      setError('Enter how much was paid.')
+      setError(t('amountPaidMissing'))
       return
     }
     if (!memberId) {
-      setError('Pick who paid.')
+      setError(t('paidByMissing'))
       return
     }
     if (amount > outstanding) {
-      setError(
-        `Only ${formatINR(outstanding)} is outstanding on this expense.`
-      )
+      setError(t('onlyOutstanding', { amount: formatINR(outstanding) }))
       return
     }
 
@@ -71,7 +72,7 @@ export function RecordPaymentModal({
       })
       onClose()
     } catch {
-      setError('Could not save that payment.')
+      setError(t('couldNotSavePayment'))
     } finally {
       setSaving(false)
     }
@@ -83,13 +84,13 @@ export function RecordPaymentModal({
       onOpenChange={(open) => {
         if (!open) onClose()
       }}
-      title="Record a payment"
+      title={t('recordPaymentTitle')}
       {...(expense
         ? {
-            description: `${categoryLabel(
-              expense.category,
-              expense.customCategory
-            )} · ${formatINR(outstanding)} outstanding`,
+            description: t('recordPaymentSubtitle', {
+              category: categoryLabel(expense.category, t, expense.customCategory),
+              amount: formatINR(outstanding),
+            }),
           }
         : {})}
       footer={
@@ -106,7 +107,7 @@ export function RecordPaymentModal({
             disabled={saving}
             onClick={submit}
           >
-            {saving ? 'Saving…' : 'Record payment'}
+            {saving ? t('saving') : t('recordPayment')}
           </Button>
         </>
       }
@@ -114,7 +115,7 @@ export function RecordPaymentModal({
       {expense ? (
         <div className="space-y-5">
           <AmountField
-            label="Amount paid"
+            label={t('amountPaid')}
             placeholder="0"
             value={amountText}
             onChange={(e) => setAmountText(e.target.value)}
@@ -122,7 +123,7 @@ export function RecordPaymentModal({
 
           <div>
             <p className="text-sm font-medium text-[var(--muted)] mb-2">
-              Paid by
+              {t('paidBy')}
             </p>
             <div className="flex flex-wrap gap-2">
               {members.map((m) => (
@@ -138,7 +139,7 @@ export function RecordPaymentModal({
           </div>
 
           <Field
-            label="Date"
+            label={t('date')}
             type="date"
             value={paidAt}
             onChange={(e) => setPaidAt(e.target.value)}
@@ -147,7 +148,7 @@ export function RecordPaymentModal({
           {expense.payments.length > 0 ? (
             <div>
               <p className="text-sm font-medium text-[var(--muted)] mb-2">
-                Already paid
+                {t('alreadyPaid')}
               </p>
               <ul className="space-y-1.5">
                 {expense.payments.map((payment) => (
@@ -159,7 +160,7 @@ export function RecordPaymentModal({
                       {memberName(payment.memberId)}
                       <span className="text-[var(--faint)]">
                         {' '}
-                        · {formatDate(payment.paidAt)}
+                        · {formatDate(payment.paidAt, locale)}
                       </span>
                     </span>
                     <span className="tnum font-medium text-[var(--ink)]">
@@ -167,11 +168,13 @@ export function RecordPaymentModal({
                     </span>
                     <button
                       type="button"
-                      aria-label={`Undo payment of ${formatINR(payment.amount)}`}
+                      aria-label={t('undoPaymentLabel', {
+                        amount: formatINR(payment.amount),
+                      })}
                       onClick={() => void undoPayment(expense.id, payment.id)}
                       className="text-xs text-[var(--negative)] font-medium active:scale-95 transition-transform"
                     >
-                      Undo
+                      {t('undo')}
                     </button>
                   </li>
                 ))}

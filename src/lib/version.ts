@@ -7,10 +7,10 @@ export function versionLabel(): string {
   return `v${APP_VERSION} · ${BUILD_SHA}`
 }
 
-export function buildDate(): string {
+export function buildDate(locale = 'en-IN'): string {
   const date = new Date(BUILD_TIME)
   if (Number.isNaN(date.getTime())) return ''
-  return date.toLocaleString('en-IN', {
+  return date.toLocaleString(locale, {
     day: 'numeric',
     month: 'short',
     year: 'numeric',

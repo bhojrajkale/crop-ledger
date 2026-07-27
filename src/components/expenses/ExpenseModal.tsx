@@ -9,6 +9,7 @@ import { formatAmount, formatINR, parseRupees } from '../../domain/money'
 import { splitEqually, validateCustomSplit } from '../../domain/split'
 import { newId } from '../../lib/id'
 import { todayISO } from '../../lib/format'
+import { useT } from '../../i18n'
 import { ReceiptPicker } from './ReceiptPicker'
 import { ReceiptViewer } from './ReceiptViewer'
 import type {
@@ -38,6 +39,7 @@ export function ExpenseModal({
   const listReceipts = useLedgerStore((s) => s.listReceipts)
   const syncReceipts = useLedgerStore((s) => s.syncReceipts)
   const members = crop.members
+  const t = useT()
 
   const [amountText, setAmountText] = useState('')
   const [category, setCategory] = useState<CategoryId>('seeds')
@@ -175,38 +177,36 @@ export function ExpenseModal({
 
   const submit = async () => {
     if (amount === null || amount <= 0) {
-      setError('Enter an amount.')
+      setError(t('amountMissing'))
       return
     }
     if (payMode !== 'credit' && !paidBy) {
-      setError('Pick who paid.')
+      setError(t('paidByMissing'))
       return
     }
     if (payMode === 'part') {
       if (partAmount === null || partAmount <= 0) {
-        setError('Enter how much has been paid so far.')
+        setError(t('paidSoFarMissing'))
         return
       }
       if (partAmount >= amount) {
-        setError(
-          'That covers the whole amount — choose “Paid in full” instead.'
-        )
+        setError(t('partCoversAll'))
         return
       }
     }
     if (owedBy.length === 0) {
-      setError('Pick who this expense is for.')
+      setError(t('whoOwesMissing'))
       return
     }
     if (category === 'custom' && !customCategory.trim()) {
-      setError('Name the category.')
+      setError(t('categoryNameMissing'))
       return
     }
     if (splitMode === 'custom' && customCheck && !customCheck.valid) {
       setError(
         customCheck.difference > 0
-          ? `The split is over by ${formatINR(customCheck.difference)}.`
-          : `${formatINR(-customCheck.difference)} is still unassigned.`
+          ? t('splitOverError', { amount: formatINR(customCheck.difference) })
+          : t('splitShortError', { amount: formatINR(-customCheck.difference) })
       )
       return
     }
@@ -251,20 +251,20 @@ export function ExpenseModal({
       }
       onOpenChange(false)
     } catch {
-      setError('Could not save. Your browser may be out of storage space.')
+      setError(t('storageFull'))
     } finally {
       setSaving(false)
     }
   }
 
   const memberName = (id: string) =>
-    members.find((m) => m.id === id)?.name ?? 'Unknown'
+    members.find((m) => m.id === id)?.name ?? t('removedMember')
 
   return (
     <Modal
       open={open}
       onOpenChange={onOpenChange}
-      title={editExpense ? 'Edit expense' : 'Add expense'}
+      title={editExpense ? t('editExpense') : t('addExpense')}
       footer={
         <>
           {error ? (
@@ -279,14 +279,14 @@ export function ExpenseModal({
             disabled={saving}
             onClick={submit}
           >
-            {saving ? 'Saving…' : editExpense ? 'Save changes' : 'Add expense'}
+            {saving ? t('saving') : editExpense ? t('saveChanges') : t('addExpense')}
           </Button>
         </>
       }
     >
       <div className="space-y-5">
         <AmountField
-          label="Amount"
+          label={t('amount')}
           placeholder="0"
           value={amountText}
           autoFocus={!editExpense}
@@ -295,7 +295,7 @@ export function ExpenseModal({
 
         <fieldset>
           <legend className="text-sm font-medium text-[var(--muted)] mb-2">
-            Category
+            {t('category')}
           </legend>
           <div className="flex flex-wrap gap-2">
             {CATEGORIES.map((c) => (
@@ -306,15 +306,15 @@ export function ExpenseModal({
                 onClick={() => setCategory(c.id)}
               >
                 <span aria-hidden="true">{c.emoji}</span>
-                {c.label}
+                {t(c.labelKey)}
               </Chip>
             ))}
           </div>
           {category === 'custom' ? (
             <Field
-              label="Category name"
+              label={t('categoryName')}
               className="mt-3"
-              placeholder="e.g. Crop insurance"
+              placeholder={t('categoryNamePlaceholder')}
               value={customCategory}
               onChange={(e) => setCustomCategory(e.target.value)}
             />
@@ -323,12 +323,11 @@ export function ExpenseModal({
 
         <fieldset>
           <legend className="text-sm font-medium text-[var(--muted)] mb-2">
-            Paid?
+            {t('paidQuestion')}
           </legend>
           {hasMultiplePayments ? (
             <p className="text-sm text-[var(--muted)] bg-[var(--surface-sunken)] rounded-lg px-3 py-2">
-              This expense has several part-payments recorded. Manage them from
-              the Outstanding list on the Summary tab.
+              {t('manyPaymentsNote')}
             </p>
           ) : (
             <>
@@ -337,25 +336,25 @@ export function ExpenseModal({
                   selected={payMode === 'full'}
                   onClick={() => setPayMode('full')}
                 >
-                  Paid in full
+                  {t('paidInFull')}
                 </Chip>
                 <Chip
                   selected={payMode === 'part'}
                   onClick={() => setPayMode('part')}
                 >
-                  Partly paid
+                  {t('partlyPaid')}
                 </Chip>
                 <Chip
                   selected={payMode === 'credit'}
                   onClick={() => setPayMode('credit')}
                 >
-                  On credit
+                  {t('onCredit')}
                 </Chip>
               </div>
 
               {payMode === 'part' ? (
                 <AmountField
-                  label="Paid so far"
+                  label={t('paidSoFar')}
                   className="mt-3"
                   placeholder="0"
                   value={paidText}
@@ -366,7 +365,7 @@ export function ExpenseModal({
               {payMode !== 'credit' ? (
                 <div className="mt-3">
                   <p className="text-sm font-medium text-[var(--muted)] mb-2">
-                    Paid by
+                    {t('paidBy')}
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {members.map((m) => (
@@ -384,16 +383,15 @@ export function ExpenseModal({
 
               {outstandingNow > 0 && amount !== null ? (
                 <p className="text-sm mt-3 rounded-lg px-2.5 py-1.5 bg-[var(--warning-tint)] text-[var(--warning)]">
-                  {formatINR(outstandingNow)} stays outstanding — you can record
-                  payments against it later.
+                  {t('stillOutstanding', { amount: formatINR(outstandingNow) })}
                 </p>
               ) : null}
 
               {payMode !== 'full' ? (
                 <Field
-                  label="Owed to"
+                  label={t('owedTo')}
                   className="mt-3"
-                  placeholder="Shop, dealer or contractor (optional)"
+                  placeholder={t('owedToPlaceholder')}
                   value={owedTo}
                   onChange={(e) => setOwedTo(e.target.value)}
                 />
@@ -405,7 +403,7 @@ export function ExpenseModal({
         <fieldset>
           <div className="flex items-center justify-between mb-2 gap-2">
             <legend className="text-sm font-medium text-[var(--muted)]">
-              Who owes it
+              {t('whoOwes')}
             </legend>
             <div className="flex gap-1.5">
               <button
@@ -413,7 +411,7 @@ export function ExpenseModal({
                 onClick={() => setOwedBy(members.map((m) => m.id))}
                 className="text-xs text-[var(--primary)] font-medium px-2 py-1 rounded-lg active:scale-95 transition-transform"
               >
-                Everyone
+                {t('everyone')}
               </button>
               {/* Clearing in one tap is what makes the "someone else owes it
                   all" case quick — pick one name instead of deselecting
@@ -423,7 +421,7 @@ export function ExpenseModal({
                 onClick={() => setOwedBy([])}
                 className="text-xs text-[var(--primary)] font-medium px-2 py-1 rounded-lg active:scale-95 transition-transform"
               >
-                Clear
+                {t('clear')}
               </button>
             </div>
           </div>
@@ -441,8 +439,10 @@ export function ExpenseModal({
 
           {owedBy.length === 1 && owedBy[0] !== paidBy ? (
             <p className="text-xs text-[var(--muted)] mt-2 bg-[var(--warning-tint)] text-[var(--warning)] rounded-lg px-2.5 py-1.5">
-              {memberName(paidBy)} paid, but {memberName(owedBy[0]!)} owes the
-              full amount.
+              {t('paidButOwed', {
+                payer: memberName(paidBy),
+                ower: memberName(owedBy[0]!),
+              })}
             </p>
           ) : null}
         </fieldset>
@@ -450,32 +450,33 @@ export function ExpenseModal({
         {owedBy.length > 1 ? (
           <fieldset>
             <legend className="text-sm font-medium text-[var(--muted)] mb-2">
-              Split
+              {t('split')}
             </legend>
             <div className="flex gap-2">
               <Chip
                 selected={splitMode === 'equal'}
                 onClick={() => setSplitMode('equal')}
               >
-                Equally
+                {t('equally')}
               </Chip>
               <Chip
                 selected={splitMode === 'custom'}
                 onClick={() => setSplitMode('custom')}
               >
-                Custom amounts
+                {t('customAmounts')}
               </Chip>
             </div>
 
             {splitMode === 'equal' ? (
               equalPreview.length > 0 ? (
                 <p className="text-sm text-[var(--muted)] mt-2.5">
-                  {formatINR(equalPreview[0]!.amount)} each
-                  {equalPreview.some(
-                    (s) => s.amount !== equalPreview[0]!.amount
-                  )
-                    ? ' (a paisa more for the first few, so it adds up exactly)'
-                    : ''}
+                  {equalPreview.some((s) => s.amount !== equalPreview[0]!.amount)
+                    ? t('eachAmountRounded', {
+                        amount: formatINR(equalPreview[0]!.amount),
+                      })
+                    : t('eachAmount', {
+                        amount: formatINR(equalPreview[0]!.amount),
+                      })}
                 </p>
               ) : null
             ) : (
@@ -488,7 +489,7 @@ export function ExpenseModal({
                     <input
                       type="text"
                       inputMode="decimal"
-                      aria-label={`Amount for ${memberName(memberId)}`}
+                      aria-label={t('amountFor', { name: memberName(memberId) })}
                       value={customText[memberId] ?? ''}
                       onChange={(e) =>
                         setCustomText((t) => ({
@@ -503,11 +504,13 @@ export function ExpenseModal({
                 {customCheck && !customCheck.valid ? (
                   <p className="text-sm text-[var(--warning)]">
                     {customCheck.difference > 0
-                      ? `Over by ${formatINR(customCheck.difference)}`
-                      : `${formatINR(-customCheck.difference)} left to assign`}
+                      ? t('splitOverBy', { amount: formatINR(customCheck.difference) })
+                      : t('splitLeftToAssign', {
+                          amount: formatINR(-customCheck.difference),
+                        })}
                   </p>
                 ) : customCheck?.valid ? (
-                  <p className="text-sm text-[var(--positive)]">Adds up ✓</p>
+                  <p className="text-sm text-[var(--positive)]">{t('splitAddsUp')}</p>
                 ) : null}
               </div>
             )}
@@ -516,14 +519,14 @@ export function ExpenseModal({
 
         <div className="grid grid-cols-1 gap-4">
           <Field
-            label="Date"
+            label={t('date')}
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
           />
           <TextAreaField
-            label="Notes"
-            placeholder="Optional — bill number, shop, anything worth remembering"
+            label={t('notes')}
+            placeholder={t('notesPlaceholder')}
             value={notes}
             maxLength={200}
             onChange={(e) => setNotes(e.target.value)}

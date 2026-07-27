@@ -7,7 +7,8 @@ import { Field } from '../components/ui/Field'
 import { Modal } from '../components/ui/Modal'
 import { Avatar } from '../components/ui/Chip'
 import { countMemberExpenses } from '../domain/settlement'
-import { initials, pluralize } from '../lib/format'
+import { initials } from '../lib/format'
+import { useT } from '../i18n'
 import { newId } from '../lib/id'
 import type { Member } from '../domain/types'
 
@@ -16,6 +17,7 @@ export function MembersPage() {
   const crops = useLedgerStore((s) => s.crops)
   const expenses = useLedgerStore((s) => s.expenses)
   const setMembers = useLedgerStore((s) => s.setMembers)
+  const t = useT()
 
   const [name, setName] = useState('')
   const [error, setError] = useState<string>()
@@ -30,7 +32,7 @@ export function MembersPage() {
     const trimmed = name.trim()
     if (!trimmed) return
     if (members.some((m) => m.name.toLowerCase() === trimmed.toLowerCase())) {
-      setError('Someone with that name is already on this crop.')
+      setError(t('duplicateMember'))
       return
     }
     setError(undefined)
@@ -43,8 +45,8 @@ export function MembersPage() {
       <Card>
         <div className="flex gap-2 items-end">
           <Field
-            label="Add someone"
-            placeholder="Name"
+            label={t('addSomeone')}
+            placeholder={t('name')}
             className="flex-1"
             value={name}
             onChange={(e) => {
@@ -57,7 +59,7 @@ export function MembersPage() {
             error={error}
           />
           <Button variant="primary" onClick={() => void add()} disabled={!name.trim()}>
-            Add
+            {t('add')}
           </Button>
         </div>
       </Card>
@@ -65,8 +67,8 @@ export function MembersPage() {
       {members.length === 0 ? (
         <EmptyState
           emoji="👥"
-          title="Nobody added yet"
-          description="Add everyone involved in this crop. You'll pick who paid and who owes each expense from this list."
+          title={t('noMembersTitle')}
+          description={t('noMembersBody')}
         />
       ) : (
         <ul className="space-y-2">
@@ -82,14 +84,16 @@ export function MembersPage() {
                     </p>
                     <p className="text-xs text-[var(--faint)]">
                       {count === 0
-                        ? 'No expenses yet'
-                        : `On ${pluralize(count, 'expense')}`}
+                        ? t('noExpensesYet')
+                        : t('onNExpenses', {
+                            count: t('expenses', { count }),
+                          })}
                     </p>
                   </div>
                   <Button
                     size="sm"
                     variant="ghost"
-                    aria-label={`Rename ${member.name}`}
+                    aria-label={t('renameMember', { name: member.name })}
                     onClick={() => setRenaming(member)}
                   >
                     ✏️
@@ -97,7 +101,7 @@ export function MembersPage() {
                   <Button
                     size="sm"
                     variant="ghost"
-                    aria-label={`Remove ${member.name}`}
+                    aria-label={t('removeMember', { name: member.name })}
                     onClick={() => setRemoving(member)}
                   >
                     ×
@@ -147,6 +151,7 @@ function RenameModal({
   onClose: () => void
   onSave: (member: Member) => Promise<void>
 }) {
+  const t = useT()
   const [value, setValue] = useState('')
 
   return (
@@ -156,7 +161,7 @@ function RenameModal({
         if (!open) onClose()
         else setValue(member?.name ?? '')
       }}
-      title="Rename"
+      title={t('rename')}
       footer={
         <Button
           variant="primary"
@@ -166,12 +171,12 @@ function RenameModal({
             if (member) void onSave({ ...member, name: value.trim() })
           }}
         >
-          Save
+          {t('save')}
         </Button>
       }
     >
       <Field
-        label="Name"
+        label={t('name')}
         value={value}
         autoFocus
         onChange={(e) => setValue(e.target.value)}
@@ -191,20 +196,21 @@ function RemoveModal({
   onClose: () => void
   onConfirm: () => Promise<void>
 }) {
+  const t = useT()
   return (
     <Modal
       open={member !== null}
       onOpenChange={(open) => {
         if (!open) onClose()
       }}
-      title={`Remove ${member?.name ?? ''}?`}
+      title={t('removeMemberTitle', { name: member?.name ?? '' })}
       footer={
         <div className="flex gap-2">
           <Button fullWidth onClick={onClose}>
-            Cancel
+            {t('cancel')}
           </Button>
           <Button variant="danger" fullWidth onClick={() => void onConfirm()}>
-            Remove
+            {t('remove')}
           </Button>
         </div>
       }
@@ -214,15 +220,12 @@ function RemoveModal({
         // their share drops out of the balances and the old rows stop naming
         // anyone. Better to say so than to silently change the settlement.
         <p className="text-sm text-[var(--muted)]">
-          They appear on {pluralize(expenseCount, 'expense')}. Removing them
-          leaves those expenses in place but drops their share from the
-          settlement, which will change what everyone owes. Consider settling
-          up first.
+          {t('removeMemberWarning', {
+            count: t('expenses', { count: expenseCount }),
+          })}
         </p>
       ) : (
-        <p className="text-sm text-[var(--muted)]">
-          They aren&apos;t on any expenses, so nothing else changes.
-        </p>
+        <p className="text-sm text-[var(--muted)]">{t('removeMemberSafe')}</p>
       )}
     </Modal>
   )

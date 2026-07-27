@@ -4,17 +4,18 @@ import { useLedgerStore } from '../store/useLedgerStore'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { CropModal } from '../components/crops/CropModal'
-import { pluralize } from '../lib/format'
+import { useT } from '../i18n'
 
 const TABS = [
-  { to: 'expenses', label: 'Expenses' },
-  { to: 'members', label: 'People' },
-  { to: 'summary', label: 'Summary' },
-]
+  { to: 'expenses', key: 'tabExpenses' },
+  { to: 'members', key: 'tabPeople' },
+  { to: 'summary', key: 'tabSummary' },
+] as const
 
 export function CropLayout() {
   const { cropId } = useParams<{ cropId: string }>()
   const navigate = useNavigate()
+  const t = useT()
   const crops = useLedgerStore((s) => s.crops)
   const loading = useLedgerStore((s) => s.loading)
   const openCrop = useLedgerStore((s) => s.openCrop)
@@ -33,18 +34,18 @@ export function CropLayout() {
   // Wait for the initial load before deciding a crop is missing, otherwise a
   // direct link or a refresh would bounce to the list every time.
   if (loading) {
-    return <p className="p-6 text-sm text-[var(--muted)]">Loading…</p>
+    return <p className="p-6 text-sm text-[var(--muted)]">{t('loading')}</p>
   }
 
   if (!crop) {
     return (
       <main className="max-w-2xl mx-auto p-6 text-center">
-        <p className="font-semibold text-[var(--ink)]">Crop not found</p>
+        <p className="font-semibold text-[var(--ink)]">{t('cropNotFound')}</p>
         <p className="text-sm text-[var(--muted)] mt-1 mb-5">
-          It may have been deleted on this device.
+          {t('cropNotFoundBody')}
         </p>
         <Link to="/">
-          <Button variant="primary">Back to crops</Button>
+          <Button variant="primary">{t('backToCrops')}</Button>
         </Link>
       </main>
     )
@@ -57,7 +58,7 @@ export function CropLayout() {
           to="/"
           className="text-sm text-[var(--muted)] inline-block mb-2 active:scale-95 transition-transform"
         >
-          ← All crops
+          {t('allCrops')}
         </Link>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -65,30 +66,30 @@ export function CropLayout() {
               {crop.name}
             </h1>
             <p className="text-sm text-[var(--muted)]">
-              {crop.season} · {pluralize(crop.members.length, 'member')}
-              {crop.archived ? ' · Archived' : ''}
+              {crop.season} · {t('members', { count: crop.members.length })}
+              {crop.archived ? ` · ${t('archived')}` : ''}
             </p>
           </div>
         </div>
 
         <div className="flex flex-wrap gap-2 mt-3">
           <Button size="sm" onClick={() => setEditing(true)}>
-            Edit
+            {t('edit')}
           </Button>
           <Button
             size="sm"
             onClick={() => void setArchived(crop.id, !crop.archived)}
           >
-            {crop.archived ? 'Restore' : 'Archive'}
+            {crop.archived ? t('restore') : t('archive')}
           </Button>
           <Button size="sm" variant="danger" onClick={() => setConfirmDelete(true)}>
-            Delete
+            {t('delete')}
           </Button>
         </div>
       </header>
 
       <nav
-        aria-label="Crop sections"
+        aria-label={t('cropSections')}
         className="sticky top-0 z-40 mt-4 px-4 py-2 bg-[var(--surface-glass)] backdrop-blur-xl border-b border-[var(--hairline)]"
       >
         <ul className="flex gap-1">
@@ -105,7 +106,7 @@ export function CropLayout() {
                   ].join(' ')
                 }
               >
-                {tab.label}
+                {t(tab.key)}
               </NavLink>
             </li>
           ))}
@@ -121,12 +122,12 @@ export function CropLayout() {
       <Modal
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
-        title={`Delete ${crop.name}?`}
-        description="This also deletes every expense recorded against it."
+        title={t('deleteCropTitle', { name: crop.name })}
+        description={t('deleteCropDescription')}
         footer={
           <div className="flex gap-2">
             <Button fullWidth onClick={() => setConfirmDelete(false)}>
-              Cancel
+              {t('cancel')}
             </Button>
             <Button
               variant="danger"
@@ -136,16 +137,12 @@ export function CropLayout() {
                 navigate('/')
               }}
             >
-              Delete
+              {t('delete')}
             </Button>
           </div>
         }
       >
-        <p className="text-sm text-[var(--muted)]">
-          This cannot be undone, and the data only exists on this device. If
-          you might want it back, export a backup first from Backup &amp;
-          restore.
-        </p>
+        <p className="text-sm text-[var(--muted)]">{t('deleteCropBody')}</p>
       </Modal>
     </div>
   )

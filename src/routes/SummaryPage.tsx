@@ -9,7 +9,8 @@ import { RecordPaymentModal } from '../components/expenses/RecordPaymentModal'
 import { Button } from '../components/ui/Button'
 import { categoryLabel, getCategory } from '../domain/categories'
 import { formatINR } from '../domain/money'
-import { formatDate, initials, pluralize } from '../lib/format'
+import { formatDate, initials } from '../lib/format'
+import { intlLocale, useLanguage, useT } from '../i18n'
 import type { CategoryId, Expense } from '../domain/types'
 
 export function SummaryPage() {
@@ -31,18 +32,20 @@ export function SummaryPage() {
   const transfers = useMemo(() => minimizeTransfers(balances), [balances])
   const outstanding = useMemo(() => computeOutstanding(expenses), [expenses])
   const [payingOff, setPayingOff] = useState<Expense | null>(null)
+  const t = useT()
+  const locale = intlLocale(useLanguage())
 
   if (!crop) return null
 
   const memberName = (id: string) =>
-    members.find((m) => m.id === id)?.name ?? 'Removed member'
+    members.find((m) => m.id === id)?.name ?? t('removedMember')
 
   if (expenses.length === 0) {
     return (
       <EmptyState
         emoji="📊"
-        title="Nothing to summarise yet"
-        description="Once you've recorded some expenses, this shows the total, the per-head share, and who should pay whom."
+        title={t('nothingToSummariseTitle')}
+        description={t('nothingToSummariseBody')}
       />
     )
   }
@@ -55,26 +58,26 @@ export function SummaryPage() {
     <div className="space-y-6 pb-4">
       <Card>
         <p className="text-xs uppercase tracking-wider text-[var(--faint)]">
-          Total spent
+          {t('totalSpent')}
         </p>
         <p className="text-3xl font-bold text-[var(--ink)] tnum mt-1">
           {formatINR(totals.total)}
         </p>
         <div className="flex gap-6 mt-3 pt-3 border-t border-[var(--hairline)]">
           <div>
-            <p className="text-xs text-[var(--faint)]">Per head</p>
+            <p className="text-xs text-[var(--faint)]">{t('perHeadLabel')}</p>
             <p className="font-semibold text-[var(--ink)] tnum">
               {formatINR(totals.perHead)}
             </p>
           </div>
           <div>
-            <p className="text-xs text-[var(--faint)]">People</p>
+            <p className="text-xs text-[var(--faint)]">{t('people')}</p>
             <p className="font-semibold text-[var(--ink)] tnum">
               {members.length}
             </p>
           </div>
           <div>
-            <p className="text-xs text-[var(--faint)]">Entries</p>
+            <p className="text-xs text-[var(--faint)]">{t('entries')}</p>
             <p className="font-semibold text-[var(--ink)] tnum">
               {expenses.length}
             </p>
@@ -82,31 +85,30 @@ export function SummaryPage() {
         </div>
         {totals.outstanding > 0 ? (
           <p className="text-sm text-[var(--muted)] mt-3 pt-3 border-t border-[var(--hairline)] tnum">
-            <span className="text-[var(--ink)] font-medium">
-              {formatINR(totals.paid)}
-            </span>{' '}
-            paid ·{' '}
-            <span className="text-[var(--warning)] font-medium">
-              {formatINR(totals.outstanding)}
-            </span>{' '}
-            still to pay
+            {t('paidOfTotal', {
+              paid: formatINR(totals.paid),
+              outstanding: formatINR(totals.outstanding),
+            })}
           </p>
         ) : null}
       </Card>
 
       {outstanding.total > 0 ? (
         <section>
-          <SectionTitle>Still to pay ({pluralize(outstanding.entries.length, 'bill')})</SectionTitle>
+          <SectionTitle>
+            {t('stillToPay', {
+              count: t('bills', { count: outstanding.entries.length }),
+            })}
+          </SectionTitle>
           <Card className="mb-2">
             <p className="text-xs uppercase tracking-wider text-[var(--faint)]">
-              Outstanding
+              {t('outstanding')}
             </p>
             <p className="text-2xl font-bold tnum mt-0.5 text-[var(--warning)]">
               {formatINR(outstanding.total)}
             </p>
             <p className="text-sm text-[var(--muted)] mt-1">
-              Owed to shops and contractors, not between members — so it is
-              kept out of the settlement below until it is actually paid.
+              {t('outstandingExplainer')}
             </p>
             {outstanding.byCreditor.length > 1 ? (
               <ul className="mt-3 pt-3 border-t border-[var(--hairline)] space-y-1 text-sm">
@@ -116,7 +118,7 @@ export function SummaryPage() {
                     className="flex justify-between gap-3"
                   >
                     <span className="text-[var(--muted)] truncate">
-                      {group.creditor ?? 'Not recorded'}
+                      {group.creditor ?? t('notRecorded')}
                     </span>
                     <span className="tnum font-medium text-[var(--ink)] shrink-0">
                       {formatINR(group.total)}
@@ -133,7 +135,7 @@ export function SummaryPage() {
                 <Card>
                   <div className="flex items-baseline justify-between gap-3">
                     <p className="font-medium text-[var(--ink)] truncate">
-                      {categoryLabel(expense.category, expense.customCategory)}
+                      {categoryLabel(expense.category, t, expense.customCategory)}
                     </p>
                     <p className="font-semibold tnum shrink-0 text-[var(--warning)]">
                       {formatINR(due)}
@@ -141,9 +143,12 @@ export function SummaryPage() {
                   </div>
                   <p className="text-sm text-[var(--muted)] mt-0.5">
                     {expense.owedTo ? `${expense.owedTo} · ` : ''}
-                    {formatDate(expense.date)}
+                    {formatDate(expense.date, locale)}
                     {due < expense.amount
-                      ? ` · ${formatINR(expense.amount - due)} of ${formatINR(expense.amount)} paid`
+                      ? ` · ${t('paidOfAmount', {
+                          paid: formatINR(expense.amount - due),
+                          total: formatINR(expense.amount),
+                        })}`
                       : ''}
                   </p>
                   <Button
@@ -152,7 +157,7 @@ export function SummaryPage() {
                     className="mt-2.5"
                     onClick={() => setPayingOff(expense)}
                   >
-                    Record payment
+                    {t('recordPayment')}
                   </Button>
                 </Card>
               </li>
@@ -162,58 +167,64 @@ export function SummaryPage() {
       ) : null}
 
       <section>
-        <SectionTitle>Who owes whom</SectionTitle>
+        <SectionTitle>{t('whoOwesWhom')}</SectionTitle>
         {transfers.length === 0 ? (
           <Card>
             {outstanding.total > 0 ? (
               // Saying "everyone is square" while bills are unpaid would be
               // true between members but misleading about the crop overall.
               <p className="text-sm text-[var(--muted)]">
-                Nothing to settle{' '}
+                {t('nothingBetweenMembers')}{' '}
                 <span className="font-medium text-[var(--ink)]">
-                  between members
+                  {t('nothingBetweenMembersEmphasis')}
                 </span>{' '}
-                — but {formatINR(outstanding.total)} is still owed outside the
-                group.
+                {t('nothingBetweenMembersRest', {
+                  amount: formatINR(outstanding.total),
+                })}
               </p>
             ) : (
               <p className="text-sm text-[var(--positive)] font-medium">
-                Everyone is square — nothing to settle. ✓
+                {t('allSquare')}
               </p>
             )}
           </Card>
         ) : (
           <>
             <ul className="space-y-2">
-              {transfers.map((t) => (
-                <li key={`${t.from}-${t.to}`}>
+              {transfers.map((transfer) => (
+                <li key={`${transfer.from}-${transfer.to}`}>
                   <Card className="flex items-center gap-3">
-                    <Avatar initials={initials(memberName(t.from))} />
+                    <Avatar initials={initials(memberName(transfer.from))} />
                     <div className="flex-1 min-w-0 text-sm">
                       <span className="font-medium text-[var(--ink)]">
-                        {memberName(t.from)}
+                        {memberName(transfer.from)}
                       </span>
-                      <span className="text-[var(--muted)]"> pays </span>
+                      <span className="text-[var(--muted)]">
+                        {' '}
+                        {t('paysConnector')}{' '}
+                      </span>
                       <span className="font-medium text-[var(--ink)]">
-                        {memberName(t.to)}
+                        {memberName(transfer.to)}
                       </span>
                     </div>
                     <span className="font-semibold text-[var(--ink)] tnum shrink-0">
-                      {formatINR(t.amount)}
+                      {formatINR(transfer.amount)}
                     </span>
                   </Card>
                 </li>
               ))}
             </ul>
             <p className="text-xs text-[var(--faint)] mt-2 px-1">
-              {pluralize(transfers.length, 'payment')} settles everyone up.
+              {t('nPaymentsSettle', {
+                count: t('payments', { count: transfers.length }),
+              })}
             </p>
           </>
         )}
       </section>
 
       <section>
-        <SectionTitle>Each person</SectionTitle>
+        <SectionTitle>{t('eachPerson')}</SectionTitle>
         <ul className="space-y-2">
           {members.map((member) => {
             const balance = balances.get(member.id) ?? 0
@@ -239,21 +250,21 @@ export function SummaryPage() {
                       }}
                     >
                       {balance === 0
-                        ? 'Settled'
+                        ? t('settled')
                         : balance > 0
-                          ? `gets ${formatINR(balance)}`
-                          : `owes ${formatINR(-balance)}`}
+                          ? t('gets', { amount: formatINR(balance) })
+                          : t('owes', { amount: formatINR(-balance) })}
                     </span>
                   </div>
                   <div className="flex gap-6 mt-2.5 pt-2.5 border-t border-[var(--hairline)] text-sm">
                     <span className="text-[var(--muted)]">
-                      Paid{' '}
+                      {t('paidLabel')}{' '}
                       <span className="text-[var(--ink)] tnum font-medium">
                         {formatINR(paid)}
                       </span>
                     </span>
                     <span className="text-[var(--muted)]">
-                      Share{' '}
+                      {t('shareLabel')}{' '}
                       <span className="text-[var(--ink)] tnum font-medium">
                         {formatINR(owes)}
                       </span>
@@ -267,7 +278,7 @@ export function SummaryPage() {
       </section>
 
       <section>
-        <SectionTitle>Where it went</SectionTitle>
+        <SectionTitle>{t('whereItWent')}</SectionTitle>
         <Card className="space-y-3">
           {categoryRows.map(([id, amount]) => {
             const category = getCategory(id as CategoryId)
@@ -277,7 +288,7 @@ export function SummaryPage() {
                 <div className="flex items-baseline justify-between gap-3 text-sm mb-1">
                   <span className="text-[var(--ink)] truncate">
                     <span aria-hidden="true">{category.emoji}</span>{' '}
-                    {categoryLabel(id as CategoryId)}
+                    {categoryLabel(id as CategoryId, t)}
                   </span>
                   <span className="text-[var(--ink)] tnum font-medium shrink-0">
                     {formatINR(amount)}

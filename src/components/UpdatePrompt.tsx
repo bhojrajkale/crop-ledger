@@ -1,10 +1,12 @@
 import { useRegisterSW } from 'virtual:pwa-register/react'
 import { Button } from './ui/Button'
+import { useT } from '../i18n'
 
 /** How often to ask the server whether a new build exists. */
 const CHECK_INTERVAL_MS = 60 * 60 * 1000
 
 export function UpdatePrompt() {
+  const t = useT()
   const {
     needRefresh: [needRefresh, setNeedRefresh],
     updateServiceWorker,
@@ -42,9 +44,9 @@ export function UpdatePrompt() {
       role="status"
       className="fixed inset-x-3 bottom-3 z-[300] mx-auto max-w-md rounded-2xl border border-[var(--primary-border)] bg-[var(--surface)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-lg"
     >
-      <p className="font-semibold text-[var(--ink)]">Update available</p>
+      <p className="font-semibold text-[var(--ink)]">{t('updateAvailable')}</p>
       <p className="mt-0.5 text-sm text-[var(--muted)]">
-        A newer version of Crop Ledger is ready. Your data stays as it is.
+        {t('updateAvailableBody')}
       </p>
       <div className="mt-3 flex gap-2">
         <Button
@@ -52,9 +54,9 @@ export function UpdatePrompt() {
           fullWidth
           onClick={() => void updateServiceWorker(true)}
         >
-          Reload now
+          {t('reloadNow')}
         </Button>
-        <Button onClick={() => setNeedRefresh(false)}>Later</Button>
+        <Button onClick={() => setNeedRefresh(false)}>{t('later')}</Button>
       </div>
     </div>
   )

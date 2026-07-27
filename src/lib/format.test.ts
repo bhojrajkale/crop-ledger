@@ -4,7 +4,6 @@ import {
   formatDate,
   formatLongDate,
   initials,
-  pluralize,
   todayISO,
 } from './format'
 
@@ -54,15 +53,13 @@ describe('initials', () => {
   })
 })
 
-describe('pluralize', () => {
-  it('picks the right form', () => {
-    expect(pluralize(1, 'member')).toBe('1 member')
-    expect(pluralize(3, 'member')).toBe('3 members')
-    expect(pluralize(0, 'member')).toBe('0 members')
+describe('formatDate in Marathi', () => {
+  it('uses Marathi month names with Latin digits', () => {
+    expect(formatDate('2026-07-26', 'mr-IN-u-nu-latn')).toBe('26 जुलै')
   })
 
-  it('accepts an irregular plural', () => {
-    expect(pluralize(2, 'entry', 'entries')).toBe('2 entries')
+  it('does the same for the long form', () => {
+    expect(formatLongDate('2026-06-01', 'mr-IN-u-nu-latn')).toBe('1 जून, 2026')
   })
 })
 

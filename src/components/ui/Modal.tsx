@@ -1,5 +1,6 @@
 import * as Dialog from '@radix-ui/react-dialog'
 import type { ReactNode } from 'react'
+import { useT } from '../../i18n'
 
 /**
  * Radix handles the focus trap, escape-to-close, scroll lock and aria wiring.
@@ -21,6 +22,7 @@ export function Modal({
   children: ReactNode
   footer?: ReactNode
 }) {
+  const t = useT()
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
@@ -52,7 +54,7 @@ export function Modal({
               )}
             </div>
             <Dialog.Close
-              aria-label="Close"
+              aria-label={t('close')}
               className="shrink-0 -mt-1 -mr-1 size-9 rounded-full text-[var(--muted)] text-xl leading-none active:scale-95 transition-transform"
             >
               ×

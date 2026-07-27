@@ -29,6 +29,8 @@ app — all data lives on your device, with no account and no server.
   list of payments that settles everyone up.
 - **Backup** — export everything, receipt photos included, to a JSON file and
   restore it on another device.
+- **Marathi** — the app is in Marathi by default, with English available from
+  Backup & restore. Amounts stay in familiar figures (₹1,20,000) in both.
 
 Money owed to a shop is kept separate from money members owe each other, so
 the settlement only ever covers what has actually changed hands.

@@ -6,16 +6,21 @@ export function todayISO(): string {
   return new Date(now.getTime() - offset).toISOString().slice(0, 10)
 }
 
-export function formatDate(iso: string): string {
+/**
+ * Dates take a locale because month names are translated; amounts do not,
+ * because money always uses en-IN for its lakh grouping (₹1,20,000, which
+ * mr-IN does not produce).
+ */
+export function formatDate(iso: string, locale = 'en-IN'): string {
   const date = new Date(`${iso}T00:00:00`)
   if (Number.isNaN(date.getTime())) return iso
-  return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+  return date.toLocaleDateString(locale, { day: 'numeric', month: 'short' })
 }
 
-export function formatLongDate(iso: string): string {
+export function formatLongDate(iso: string, locale = 'en-IN'): string {
   const date = new Date(`${iso}T00:00:00`)
   if (Number.isNaN(date.getTime())) return iso
-  return date.toLocaleDateString('en-IN', {
+  return date.toLocaleDateString(locale, {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
@@ -31,10 +36,9 @@ export function initials(name: string): string {
   return letters.toUpperCase().slice(0, 2) || '?'
 }
 
-/** "3 members" / "1 member" — avoids a stray plural everywhere it's used. */
-export function pluralize(count: number, singular: string, plural?: string) {
-  return `${count} ${count === 1 ? singular : (plural ?? `${singular}s`)}`
-}
+// Pluralisation now lives in the translation catalogue (a `key` and a
+// `key_one`), because English suffix rules do not apply to Marathi. Use
+// t('members', { count }) instead of a helper here.
 
 /**
  * Human-readable file size. Used to show what a receipt costs in storage —

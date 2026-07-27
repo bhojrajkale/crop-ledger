@@ -5,12 +5,20 @@ import { Field } from '../ui/Field'
 import { useLedgerStore } from '../../store/useLedgerStore'
 import { newId } from '../../lib/id'
 import { todayISO } from '../../lib/format'
+import { useT } from '../../i18n'
 import type { Crop } from '../../domain/types'
 
-/** Suggests "Kharif 2026" / "Rabi 2026" so the season field is rarely typed. */
-function defaultSeason(date = new Date()): string {
+/**
+ * Suggests "Kharif 2026" / "खरीप 2026" so the season field is rarely typed.
+ * The season name is translated; the year stays in Latin digits to match the
+ * rest of the app.
+ */
+function defaultSeason(
+  t: (key: 'seasonKharif' | 'seasonRabi') => string,
+  date = new Date()
+): string {
   const month = date.getMonth() // 0-indexed
-  const season = month >= 5 && month <= 9 ? 'Kharif' : 'Rabi'
+  const season = month >= 5 && month <= 9 ? t('seasonKharif') : t('seasonRabi')
   return `${season} ${date.getFullYear()}`
 }
 
@@ -26,6 +34,7 @@ export function CropModal({
   onSaved?: (crop: Crop) => void
 }) {
   const saveCrop = useLedgerStore((s) => s.saveCrop)
+  const t = useT()
   const [name, setName] = useState('')
   const [season, setSeason] = useState('')
   const [startDate, setStartDate] = useState(todayISO())
@@ -37,20 +46,20 @@ export function CropModal({
   useEffect(() => {
     if (!open) return
     setName(editCrop?.name ?? '')
-    setSeason(editCrop?.season ?? defaultSeason())
+    setSeason(editCrop?.season ?? defaultSeason(t))
     setStartDate(editCrop?.startDate ?? todayISO())
     setEndDate(editCrop?.endDate ?? '')
     setError(undefined)
-  }, [open, editCrop])
+  }, [open, editCrop, t])
 
   const submit = async () => {
     const trimmed = name.trim()
     if (!trimmed) {
-      setError('Give the crop a name.')
+      setError(t('cropNameMissing'))
       return
     }
     if (endDate && endDate < startDate) {
-      setError('The end date is before the start date.')
+      setError(t('endBeforeStart'))
       return
     }
 
@@ -76,7 +85,7 @@ export function CropModal({
       onOpenChange(false)
       onSaved?.(crop)
     } catch {
-      setError('Could not save. Your browser may be out of storage space.')
+      setError(t('storageFull'))
     } finally {
       setSaving(false)
     }
@@ -86,42 +95,42 @@ export function CropModal({
     <Modal
       open={open}
       onOpenChange={onOpenChange}
-      title={editCrop ? 'Edit crop' : 'New crop'}
+      title={editCrop ? t('editCrop') : t('cropTitle')}
       footer={
         <Button variant="primary" size="lg" fullWidth disabled={saving} onClick={submit}>
-          {saving ? 'Saving…' : editCrop ? 'Save changes' : 'Create crop'}
+          {saving ? t('saving') : editCrop ? t('saveChanges') : t('createCrop')}
         </Button>
       }
     >
       <div className="space-y-4">
         <Field
-          label="Crop"
-          placeholder="Cotton, Soybean, Sugarcane…"
+          label={t('cropName')}
+          placeholder={t('cropNamePlaceholder')}
           value={name}
           autoFocus={!editCrop}
           onChange={(e) => setName(e.target.value)}
           error={error}
         />
         <Field
-          label="Season"
-          placeholder="Kharif 2026"
+          label={t('season')}
+          placeholder={defaultSeason(t)}
           value={season}
           onChange={(e) => setSeason(e.target.value)}
-          hint="Lets you grow the same crop again next year without mixing them up."
+          hint={t('seasonHint')}
         />
         <div className="grid grid-cols-2 gap-3">
           <Field
-            label="Sowing date"
+            label={t('sowingDate')}
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
           />
           <Field
-            label="Harvest date"
+            label={t('harvestDate')}
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
-            hint="Optional"
+            hint={t('optional')}
           />
         </div>
       </div>

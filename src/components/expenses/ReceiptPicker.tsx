@@ -3,7 +3,8 @@ import { Button } from '../ui/Button'
 import { useObjectUrl } from '../../lib/useObjectUrl'
 import { compressImage, isImageFile } from '../../lib/image'
 import { newId } from '../../lib/id'
-import { formatBytes, pluralize } from '../../lib/format'
+import { formatBytes } from '../../lib/format'
+import { useT } from '../../i18n'
 import type { Receipt } from '../../domain/types'
 
 /** Keeps one bad photo from blocking the rest of a multi-file selection. */
@@ -35,6 +36,7 @@ export function ReceiptPicker({
   // Two separate inputs rather than one. `capture` cannot be toggled
   // reliably on a live element, and relying on the OS picker to offer both
   // hid the choice: the user could not tell the camera was an option at all.
+  const t = useT()
   const cameraInput = useRef<HTMLInputElement>(null)
   const galleryInput = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
@@ -59,8 +61,8 @@ export function ReceiptPicker({
     if (added.length > 0) onAdd(added)
     if (failed > 0 || skipped > 0) {
       const parts = []
-      if (skipped > 0) parts.push(`${skipped} file(s) were not images`)
-      if (failed > 0) parts.push(`${failed} could not be read`)
+      if (skipped > 0) parts.push(t('notImages', { count: skipped }))
+      if (failed > 0) parts.push(t('couldNotRead', { count: failed }))
       setError(`${parts.join(', ')}.`)
     }
     setBusy(false)
@@ -73,7 +75,7 @@ export function ReceiptPicker({
   return (
     <fieldset>
       <legend className="text-sm font-medium text-[var(--muted)] mb-2">
-        Receipts
+        {t('receipts')}
       </legend>
 
       {receipts.length > 0 ? (
@@ -118,10 +120,10 @@ export function ReceiptPicker({
 
       <div className="flex flex-wrap gap-2">
         <Button size="sm" disabled={busy} onClick={() => cameraInput.current?.click()}>
-          {busy ? 'Adding…' : '📷 Take photo'}
+          {busy ? t('adding') : t('takePhoto')}
         </Button>
         <Button size="sm" disabled={busy} onClick={() => galleryInput.current?.click()}>
-          🖼️ Choose photo
+          {t('choosePhoto')}
         </Button>
       </div>
 
@@ -132,8 +134,11 @@ export function ReceiptPicker({
       ) : (
         <p className="text-xs text-[var(--faint)] mt-2">
           {receipts.length > 0
-            ? `${pluralize(receipts.length, 'photo')} · ${formatBytes(totalBytes)} after shrinking. Stored on this device only.`
-            : 'Photos are shrunk before saving and stay on this device.'}
+            ? t('photosStored', {
+                photos: t('photos', { count: receipts.length }),
+                size: formatBytes(totalBytes),
+              })
+            : t('photosHint')}
         </p>
       )}
     </fieldset>
@@ -149,6 +154,7 @@ function Thumbnail({
   onView: () => void
   onRemove: () => void
 }) {
+  const t = useT()
   const url = useObjectUrl(receipt.image)
 
   return (
@@ -156,7 +162,7 @@ function Thumbnail({
       <button
         type="button"
         onClick={onView}
-        aria-label="View receipt"
+        aria-label={t('viewReceiptLabel')}
         className="block size-20 rounded-xl overflow-hidden border border-[var(--hairline)] bg-[var(--surface-sunken)] active:scale-95 transition-transform"
       >
         {url ? (
@@ -166,7 +172,7 @@ function Thumbnail({
       <button
         type="button"
         onClick={onRemove}
-        aria-label="Remove receipt"
+        aria-label={t('removeReceipt')}
         className="absolute -top-1.5 -right-1.5 size-6 rounded-full bg-[var(--negative)] text-white text-sm leading-none active:scale-95 transition-transform"
       >
         ×

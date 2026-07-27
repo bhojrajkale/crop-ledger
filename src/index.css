@@ -94,8 +94,16 @@
 }
 
 @theme inline {
+  /*
+   * The Devanagari faces are named explicitly after the Latin ones. The app
+   * defaults to Marathi, and while system-ui usually falls back sensibly, an
+   * unshaped conjunct (द्य rendering as द् + य) is unreadable rather than
+   * merely ugly. These are all pre-installed on their platforms — Kohinoor on
+   * Apple, Noto on Android, Nirmala on Windows — so this costs no download.
+   */
   --font-sans:
     ui-rounded, 'SF Pro Rounded', system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Kohinoor Devanagari', 'Noto Sans Devanagari', 'Nirmala UI', 'Mangal',
     sans-serif;
   /* Tabular figures so columns of money line up digit-for-digit. */
   --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, monospace;
