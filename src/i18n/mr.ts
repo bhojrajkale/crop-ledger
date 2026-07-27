@@ -68,7 +68,7 @@ export const mr: Record<keyof typeof en, string> = {
   deleteCropTitle: '{name} हटवायचे?',
   deleteCropDescription: 'यासोबत त्यावरील सर्व खर्चही हटवले जातील.',
   deleteCropBody:
-    'हे पूर्ववत करता येणार नाही, आणि ही माहिती फक्त याच फोनवर आहे. पुन्हा लागण्याची शक्यता असेल तर आधी बॅकअप व पुनर्संचयन मधून बॅकअप घ्या.',
+    'हे पूर्ववत करता येणार नाही, आणि ही माहिती फक्त याच फोनवर आहे. पुन्हा लागण्याची शक्यता असेल तर अगोदर बॅकअप व पुनर्संचयन मधून बॅकअप घ्या.',
 
   // Members
   addSomeone: 'व्यक्ती जोडा',
@@ -84,7 +84,7 @@ export const mr: Record<keyof typeof en, string> = {
   removeMember: '{name} यांना काढा',
   removeMemberTitle: '{name} यांना काढायचे?',
   removeMemberWarning:
-    'ते {count} मध्ये आहेत. त्यांना काढल्यास ते खर्च तसेच राहतील, पण त्यांचा वाटा हिशोबातून वगळला जाईल आणि प्रत्येकाचे देणे बदलेल. आधी हिशोब पूर्ण करणे बरे.',
+    'ते {count} मध्ये आहेत. त्यांना काढल्यास ते खर्च तसेच राहतील, पण त्यांचा वाटा हिशोबातून वगळला जाईल आणि प्रत्येकाचे देणे बदलेल. अगोदर हिशोब पूर्ण करणे बरे.',
   removeMemberSafe: 'ते कोणत्याही खर्चात नाहीत, त्यामुळे बाकी काही बदलणार नाही.',
 
   // Expenses list
@@ -236,7 +236,7 @@ export const mr: Record<keyof typeof en, string> = {
   import: 'परत आणा',
   importBody1: 'बॅकअप फाइलमधून माहिती परत आणते.',
   importBodyEmphasis: 'यामुळे या फोनवरील सर्व माहिती बदलली जाईल',
-  importBody2: '— इथली माहिती ठेवायची असेल तर आधी बॅकअप घ्या.',
+  importBody2: '— इथली माहिती ठेवायची असेल तर अगोदर बॅकअप घ्या.',
   chooseBackupFile: 'बॅकअप फाइल निवडा',
   restored: '{crops}, {expenses}{photos} परत आणले.',
   restoredPhotos: ' आणि {photos}',
