@@ -32,7 +32,7 @@ export const mr: Record<keyof typeof en, string> = {
   newCrop: '+ नवीन पीक',
   noCropsTitle: 'अजून एकही पीक नाही',
   noCropsBody:
-    'या हंगामात तुम्ही घेत असलेले पीक जोडून सुरुवात करा. त्यानंतर सहभागी माणसे आणि त्यांचा खर्च जोडता येईल.',
+    'या हंगामात तुम्ही घेत असलेले पीक जोडून सुरुवात करा. त्यानंतर सहभागी व्यक्ती आणि त्यांचा खर्च जोडता येईल.',
   addFirstCrop: 'पहिले पीक जोडा',
   allArchived:
     'सर्व पिके संग्रहित आहेत. खालून एखादे परत आणा, किंवा नवीन पीक जोडा.',
@@ -62,7 +62,7 @@ export const mr: Record<keyof typeof en, string> = {
   archive: 'संग्रहित करा',
   restore: 'परत आणा',
   tabExpenses: 'खर्च',
-  tabPeople: 'माणसे',
+  tabPeople: 'व्यक्ती',
   tabSummary: 'सारांश',
   cropSections: 'पिकाचे विभाग',
   deleteCropTitle: '{name} हटवायचे?',
@@ -71,7 +71,7 @@ export const mr: Record<keyof typeof en, string> = {
     'हे पूर्ववत करता येणार नाही, आणि ही माहिती फक्त याच फोनवर आहे. पुन्हा लागण्याची शक्यता असेल तर आधी बॅकअप व पुनर्संचयन मधून बॅकअप घ्या.',
 
   // Members
-  addSomeone: 'माणूस जोडा',
+  addSomeone: 'व्यक्ती जोडा',
   name: 'नाव',
   duplicateMember: 'या नावाचा सदस्य आधीच या पिकात आहे.',
   noMembersTitle: 'अजून कोणीही जोडलेले नाही',
@@ -88,10 +88,10 @@ export const mr: Record<keyof typeof en, string> = {
   removeMemberSafe: 'ते कोणत्याही खर्चात नाहीत, त्यामुळे बाकी काही बदलणार नाही.',
 
   // Expenses list
-  addPeopleFirstTitle: 'आधी माणसे जोडा',
+  addPeopleFirstTitle: 'आधी व्यक्ती जोडा',
   addPeopleFirstBody:
-    'खर्चासाठी तो कोणी दिला आणि कोणावर आहे हे लागते, म्हणून आधी या पिकात सहभागी माणसे जोडा.',
-  addPeople: 'माणसे जोडा',
+    'खर्चासाठी तो कोणी दिला आणि कोणावर आहे हे लागते, म्हणून आधी या पिकात सहभागी व्यक्ती जोडा.',
+  addPeople: 'व्यक्ती जोडा',
   totalSpent: 'एकूण खर्च',
   perHead: 'दरडोई {amount}',
   stillToPayShort: '{amount} अजून द्यायचे',
@@ -186,7 +186,7 @@ export const mr: Record<keyof typeof en, string> = {
   nothingToSummariseBody:
     'काही खर्च नोंदवल्यावर इथे एकूण रक्कम, दरडोई वाटा आणि कोणी कोणाला किती द्यायचे ते दिसेल.',
   perHeadLabel: 'दरडोई',
-  people: 'माणसे',
+  people: 'व्यक्ती',
   entries: 'नोंदी',
   paidOfTotal: '{paid} दिले · {outstanding} अजून द्यायचे',
   stillToPay: 'अजून द्यायचे ({count})',
@@ -205,7 +205,7 @@ export const mr: Record<keyof typeof en, string> = {
   nPaymentsSettle: '{count} मध्ये सर्वांचा हिशोब पूर्ण होतो.',
   payments: '{count} व्यवहार',
   payments_one: '{count} व्यवहार',
-  eachPerson: 'प्रत्येक माणूस',
+  eachPerson: 'प्रत्येक व्यक्ती',
   settled: 'हिशोब पूर्ण',
   gets: '{amount} मिळणार',
   owes: '{amount} देणे',
