@@ -231,6 +231,10 @@ export const mr: Record<keyof typeof en, string> = {
   exportBody:
     '{crops}, त्यांचे सर्व खर्च आणि पावत्यांचे फोटो एका JSON फाइलमध्ये जतन करते. ती सुरक्षित ठेवा — स्वतःला ईमेल करा किंवा क्लाउडवर ठेवा. फोटोंमुळे फाइल बरीच मोठी होते, त्यामुळे थोडा वेळ लागू शकतो.',
   downloadBackup: 'बॅकअप डाउनलोड करा',
+  shareBackup: 'बॅकअप शेअर करा',
+  backupShared: 'बॅकअप शेअर झाला.',
+  sharedInsteadDownloaded:
+    'शेअर करता आले नाही, म्हणून बॅकअप डाउनलोड केला.',
   backupDownloaded: 'बॅकअप डाउनलोड झाला.',
   backupFailed: 'बॅकअप फाइल तयार करता आली नाही.',
   import: 'परत आणा',

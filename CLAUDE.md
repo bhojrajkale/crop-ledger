@@ -165,6 +165,26 @@ languages.
 - The font stack names Devanagari faces explicitly. An unshaped conjunct is
   unreadable, not merely ugly.
 
+## Backing up cannot happen automatically
+
+There is no backup-on-close and there cannot be. Browsers block file saves
+during unload, `beforeunload` may show only a generic dialog, and on iOS
+closing a tab or swiping away a home-screen app often fires nothing at all. A
+backup that silently fails to run is worse than none, because it would be
+trusted. Don't add one.
+
+What exists instead is `lib/share.ts`, handing the file to the OS share sheet
+so it reaches iCloud Drive or WhatsApp in one tap. Rules there:
+
+- **Probe with `canShare` before rendering the button.** Safari refuses some
+  file types; the code retries as `text/plain` (the `.json` filename still
+  saves correctly) and reports nothing shareable if neither is accepted.
+- **Cancelling is not an error.** `AbortError` means the user chose to dismiss
+  the sheet; say nothing.
+- **Always fall back to a download.** Safari refuses the share if assembling a
+  large backup outlasts the tap, which is likely with photos. The user must
+  end up with the file either way.
+
 ## Storage is device-local and has no server copy
 
 There is no cloud backup and no sync. Consequences that keep biting if

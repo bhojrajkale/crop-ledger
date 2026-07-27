@@ -230,6 +230,10 @@ export const en = {
   exportBody:
     'Saves {crops}, all their expenses and any receipt photos as a JSON file. Keep it somewhere safe — email it to yourself, or drop it in cloud storage. Photos make the file much larger, so it may take a moment.',
   downloadBackup: 'Download backup',
+  shareBackup: 'Share backup',
+  backupShared: 'Backup shared.',
+  sharedInsteadDownloaded:
+    'Sharing was unavailable, so the backup was downloaded instead.',
   backupDownloaded: 'Backup downloaded.',
   backupFailed: 'Could not create the backup file.',
   import: 'Import',

@@ -182,8 +182,13 @@ export async function parseBackup(text: string): Promise<ParseResult> {
   }
 }
 
+/** The exact bytes written to disk, shared by the download and share paths. */
+export function serialiseBackup(backup: BackupFile): string {
+  return JSON.stringify(backup, null, 2)
+}
+
 export function downloadBackup(backup: BackupFile): void {
-  const blob = new Blob([JSON.stringify(backup, null, 2)], {
+  const blob = new Blob([serialiseBackup(backup)], {
     type: 'application/json',
   })
   const url = URL.createObjectURL(blob)

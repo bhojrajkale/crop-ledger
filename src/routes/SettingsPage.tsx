@@ -3,7 +3,8 @@ import { Link } from 'react-router'
 import { useLedgerStore } from '../store/useLedgerStore'
 import { Button } from '../components/ui/Button'
 import { Card, SectionTitle } from '../components/ui/Card'
-import { downloadBackup } from '../data/backup'
+import { downloadBackup, serialiseBackup, backupFilename } from '../data/backup'
+import { canShareBackup, shareBackup } from '../lib/share'
 import { buildDate, versionLabel } from '../lib/version'
 import { Chip } from '../components/ui/Chip'
 import {
@@ -24,6 +25,9 @@ export function SettingsPage() {
   const setLanguage = useLanguageStore((s) => s.setLanguage)
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null)
   const [updateStatus, setUpdateStatus] = useState<string>()
+  // Probed once: rendering a Share button the platform will refuse is worse
+  // than not offering it.
+  const [canShare] = useState(() => canShareBackup())
 
   /**
    * Asks the service worker to re-check for a new build. If one exists, the
@@ -56,6 +60,24 @@ export function SettingsPage() {
     try {
       downloadBackup(await exportBackup())
       setStatus({ ok: true, text: t('backupDownloaded') })
+    } catch {
+      setStatus({ ok: false, text: t('backupFailed') })
+    }
+  }
+
+  const onShare = async () => {
+    try {
+      const backup = await exportBackup()
+      const outcome = await shareBackup(serialiseBackup(backup), backupFilename())
+      if (outcome === 'shared') {
+        setStatus({ ok: true, text: t('backupShared') })
+      } else if (outcome === 'unsupported') {
+        // Never leave the user with nothing: if the sheet would not open,
+        // hand them the file the ordinary way and say what happened.
+        downloadBackup(backup)
+        setStatus({ ok: true, text: t('sharedInsteadDownloaded') })
+      }
+      // 'cancelled' is a deliberate choice, not a failure — say nothing.
     } catch {
       setStatus({ ok: false, text: t('backupFailed') })
     }
@@ -141,9 +163,19 @@ export function SettingsPage() {
         <p className="text-sm text-[var(--muted)] mb-3">
           {t('exportBody', { crops: t('crops', { count: crops.length }) })}
         </p>
-        <Button variant="primary" onClick={() => void onExport()}>
-          {t('downloadBackup')}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {canShare ? (
+            <Button variant="primary" onClick={() => void onShare()}>
+              {t('shareBackup')}
+            </Button>
+          ) : null}
+          <Button
+            variant={canShare ? 'secondary' : 'primary'}
+            onClick={() => void onExport()}
+          >
+            {t('downloadBackup')}
+          </Button>
+        </div>
       </Card>
 
       <SectionTitle>{t('import')}</SectionTitle>
