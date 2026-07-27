@@ -7,6 +7,7 @@ import { CropsPage } from './routes/CropsPage'
 import { CropLayout } from './routes/CropLayout'
 import { ExpensesPage } from './routes/ExpensesPage'
 import { MembersPage } from './routes/MembersPage'
+import { HarvestPage } from './routes/HarvestPage'
 import { SummaryPage } from './routes/SummaryPage'
 import { SettingsPage } from './routes/SettingsPage'
 
@@ -24,6 +25,7 @@ const router = createBrowserRouter(
             { index: true, element: <Navigate to="expenses" replace /> },
             { path: 'expenses', element: <ExpensesPage /> },
             { path: 'members', element: <MembersPage /> },
+            { path: 'harvest', element: <HarvestPage /> },
             { path: 'summary', element: <SummaryPage /> },
           ],
         },

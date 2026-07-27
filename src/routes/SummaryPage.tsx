@@ -5,6 +5,7 @@ import { Card, EmptyState, SectionTitle } from '../components/ui/Card'
 import { Avatar } from '../components/ui/Chip'
 import { computeBalances, computeTotals, minimizeTransfers } from '../domain/settlement'
 import { computeOutstanding } from '../domain/payments'
+import { computeRevenue } from '../domain/revenue'
 import { RecordPaymentModal } from '../components/expenses/RecordPaymentModal'
 import { Button } from '../components/ui/Button'
 import { categoryLabel, getCategory } from '../domain/categories'
@@ -17,6 +18,7 @@ export function SummaryPage() {
   const { cropId } = useParams<{ cropId: string }>()
   const crops = useLedgerStore((s) => s.crops)
   const expenses = useLedgerStore((s) => s.expenses)
+  const sales = useLedgerStore((s) => s.sales)
 
   const crop = crops.find((c) => c.id === cropId)
   const members = useMemo(() => crop?.members ?? [], [crop])
@@ -26,11 +28,15 @@ export function SummaryPage() {
     [members, expenses]
   )
   const balances = useMemo(
-    () => computeBalances(members, expenses),
-    [members, expenses]
+    () => computeBalances(members, expenses, sales),
+    [members, expenses, sales]
   )
   const transfers = useMemo(() => minimizeTransfers(balances), [balances])
   const outstanding = useMemo(() => computeOutstanding(expenses), [expenses])
+  const revenue = useMemo(
+    () => computeRevenue(members, sales, totals.total),
+    [members, sales, totals.total]
+  )
   const [payingOff, setPayingOff] = useState<Expense | null>(null)
   const t = useT()
   const locale = intlLocale(useLanguage())
@@ -40,7 +46,7 @@ export function SummaryPage() {
   const memberName = (id: string) =>
     members.find((m) => m.id === id)?.name ?? t('removedMember')
 
-  if (expenses.length === 0) {
+  if (expenses.length === 0 && sales.length === 0) {
     return (
       <EmptyState
         emoji="📊"
@@ -92,6 +98,54 @@ export function SummaryPage() {
           </p>
         ) : null}
       </Card>
+
+      {sales.length > 0 ? (
+        <Card>
+          <p className="text-xs uppercase tracking-wider text-[var(--faint)]">
+            {t('totalRevenue')}
+          </p>
+          <p className="text-3xl font-bold tnum mt-1 text-[var(--positive)]">
+            {formatINR(revenue.total)}
+          </p>
+          {revenue.quantity ? (
+            <p className="text-sm text-[var(--muted)] mt-0.5">
+              {t('soldQuantity', {
+                amount: revenue.quantity.amount,
+                unit: revenue.quantity.unit,
+                rate: formatINR(revenue.quantity.averageRate),
+              })}
+            </p>
+          ) : null}
+          <div className="flex gap-6 mt-3 pt-3 border-t border-[var(--hairline)]">
+            <div>
+              <p className="text-xs text-[var(--faint)]">
+                {revenue.net >= 0 ? t('netProfit') : t('netLoss')}
+              </p>
+              <p
+                className="font-semibold tnum"
+                style={{
+                  color:
+                    revenue.net >= 0 ? 'var(--positive)' : 'var(--negative)',
+                }}
+              >
+                {formatINR(Math.abs(revenue.net))}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-[var(--faint)]">{t('perHeadLabel')}</p>
+              <p className="font-semibold text-[var(--ink)] tnum">
+                {formatINR(revenue.perHead)}
+              </p>
+            </div>
+          </div>
+          <p className="text-sm text-[var(--muted)] mt-3">
+            {t('netExplainer', {
+              revenue: formatINR(revenue.total),
+              expenses: formatINR(totals.total),
+            })}
+          </p>
+        </Card>
+      ) : null}
 
       {outstanding.total > 0 ? (
         <section>

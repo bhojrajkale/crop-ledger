@@ -28,6 +28,8 @@ export interface CropRepository {
   deleteExpense(expenseId: string): Promise<void>
 
   listSales(cropId: string): Promise<Sale[]>
+  saveSale(sale: Sale): Promise<void>
+  deleteSale(saleId: string): Promise<void>
 
   /** Photos for one expense. Only ever read when someone opens them. */
   listReceipts(expenseId: string): Promise<Receipt[]>
@@ -120,7 +122,21 @@ export const dexieRepository: CropRepository = {
   },
 
   async listSales(cropId) {
-    return db.sales.where('cropId').equals(cropId).toArray()
+    const sales = await db.sales.where('cropId').equals(cropId).toArray()
+    // Newest first: the harvest tab is read as a record of what has been sold
+    // so far, and the most recent sale is the one being checked.
+    return sales.sort(
+      (a, b) =>
+        b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt)
+    )
+  },
+
+  async saveSale(sale) {
+    await db.sales.put(sale)
+  },
+
+  async deleteSale(saleId) {
+    await db.sales.delete(saleId)
   },
 
   async exportAll() {

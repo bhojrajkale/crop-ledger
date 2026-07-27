@@ -24,9 +24,11 @@ app — all data lives on your device, with no account and no server.
 - **Receipts** — attach photos of bills to an expense, several if a bill runs
   to more than one page. They are shrunk before saving and open full screen
   from the expense list.
-- **Summary** — total spent, per-head share, what is still to pay and to whom,
-  what each person paid versus their share, spend by category, and the shortest
-  list of payments that settles everyone up.
+- **Harvest** — record each sale with quantity, unit, rate and who collected
+  the money. Revenue is divided equally between everyone on the crop.
+- **Summary** — total spent, revenue, profit or loss, per-head share, what is
+  still to pay and to whom, what each person paid versus their share, spend by
+  category, and the shortest list of payments that settles everyone up.
 - **Backup** — export everything, receipt photos included, to a JSON file and
   restore it on another device.
 - **Marathi** — the app is in Marathi by default, with English available from
@@ -34,9 +36,6 @@ app — all data lives on your device, with no account and no server.
 
 Money owed to a shop is kept separate from money members owe each other, so
 the settlement only ever covers what has actually changed hands.
-
-Recording harvest revenue and dividing it between members is planned next; the
-data model and settlement engine already account for it.
 
 ## Running it
 

@@ -96,10 +96,12 @@ play. Any change to expense, payment or sale handling must preserve that — it
 is the property the whole ledger rests on, and `settlement.test.ts` asserts it
 directly.
 
-`computeBalances(members, expenses, sales)` takes an optional third argument
-that is still unused. A sale is arithmetically an inverted expense: the member
-who collected the cash is debited the total, every member credited an equal
-share. Revenue is therefore a form and a screen, not a change to the engine.
+`computeBalances(members, expenses, sales)` handles revenue in the same pass.
+A sale is arithmetically an inverted expense: the member who collected the cash
+is debited the total, every member credited an equal share — so the collector
+becomes the one who owes everybody, which is the correct end state. Mixed units
+are never summed (`computeRevenue` returns a null quantity instead), because a
+confident total of quintals plus kilos means nothing.
 
 ## Receipt photos never travel with the expense row
 
@@ -147,6 +149,10 @@ it. `i18n.test.ts` additionally catches what types cannot: a Marathi value left
 identical to its English source, and placeholders that differ between
 languages.
 
+- **`useT()` is memoised on the language — keep the `useCallback`.** An
+  unstable `t` in a `useEffect` dependency array re-runs that effect on every
+  render, and a form whose reset effect depends on `t` wipes each keystroke as
+  it is typed. That shipped, and broke the crop form.
 - **Never hardcode a user-visible string in a component.** Add a key and use
   `const t = useT()`. Category labels live in the domain layer as `labelKey`,
   resolved by the caller — `src/domain/` must not know what language the UI is

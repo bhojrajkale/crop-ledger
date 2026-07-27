@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Crop, Expense, Member, Payment, Receipt } from '../domain/types'
+import type { Crop, Expense, Member, Payment, Receipt, Sale } from '../domain/types'
 import { dexieRepository, type CropRepository } from '../data/repository'
 import { buildBackup, parseBackup, type ParseResult } from '../data/backup'
 import { applyPayment, removePayment } from '../domain/payments'
@@ -13,6 +13,8 @@ interface LedgerState {
   crops: Crop[]
   /** Expenses for the crop currently open. Not every crop's, ever. */
   expenses: Expense[]
+  /** Harvest sales for the crop currently open. */
+  sales: Sale[]
   loadedCropId: string | null
   loading: boolean
   error: string | null
@@ -28,6 +30,9 @@ interface LedgerState {
 
   saveExpense: (expense: Expense) => Promise<void>
   deleteExpense: (expenseId: string) => Promise<void>
+
+  saveSale: (sale: Sale) => Promise<void>
+  deleteSale: (saleId: string) => Promise<void>
 
   /** Records money paid towards an expense bought on credit. */
   recordPayment: (
@@ -61,6 +66,7 @@ const message = (e: unknown) =>
 export const useLedgerStore = create<LedgerState>((set, get) => ({
   crops: [],
   expenses: [],
+  sales: [],
   loadedCropId: null,
   loading: true,
   error: null,
@@ -76,12 +82,15 @@ export const useLedgerStore = create<LedgerState>((set, get) => ({
   async openCrop(cropId) {
     // Clear the previous crop's rows first so a slow read can never show one
     // crop's expenses under another crop's heading.
-    set({ expenses: [], loadedCropId: cropId })
+    set({ expenses: [], sales: [], loadedCropId: cropId })
     try {
-      const expenses = await repo.listExpenses(cropId)
+      const [expenses, sales] = await Promise.all([
+        repo.listExpenses(cropId),
+        repo.listSales(cropId),
+      ])
       // Guard against an out-of-order resolve if the user switched crops
       // while this read was in flight.
-      if (get().loadedCropId === cropId) set({ expenses, error: null })
+      if (get().loadedCropId === cropId) set({ expenses, sales, error: null })
     } catch (e) {
       set({ error: message(e) })
     }
@@ -106,7 +115,7 @@ export const useLedgerStore = create<LedgerState>((set, get) => ({
       const crops = await repo.listCrops()
       set(
         get().loadedCropId === cropId
-          ? { crops, expenses: [], loadedCropId: null, error: null }
+          ? { crops, expenses: [], sales: [], loadedCropId: null, error: null }
           : { crops, error: null }
       )
     } catch (e) {
@@ -146,6 +155,29 @@ export const useLedgerStore = create<LedgerState>((set, get) => ({
     try {
       await repo.deleteExpense(expenseId)
       if (cropId) set({ expenses: await repo.listExpenses(cropId), error: null })
+    } catch (e) {
+      set({ error: message(e) })
+      throw e
+    }
+  },
+
+  async saveSale(sale) {
+    try {
+      await repo.saveSale(sale)
+      if (get().loadedCropId === sale.cropId) {
+        set({ sales: await repo.listSales(sale.cropId), error: null })
+      }
+    } catch (e) {
+      set({ error: message(e) })
+      throw e
+    }
+  },
+
+  async deleteSale(saleId) {
+    const cropId = get().loadedCropId
+    try {
+      await repo.deleteSale(saleId)
+      if (cropId) set({ sales: await repo.listSales(cropId), error: null })
     } catch (e) {
       set({ error: message(e) })
       throw e
@@ -198,6 +230,7 @@ export const useLedgerStore = create<LedgerState>((set, get) => ({
       set({
         crops: await repo.listCrops(),
         expenses: cropId ? await repo.listExpenses(cropId) : [],
+        sales: cropId ? await repo.listSales(cropId) : [],
         error: null,
       })
       return { ...result, photosFailed }

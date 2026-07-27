@@ -1,3 +1,4 @@
+import { useCallback } from 'react'
 import { create } from 'zustand'
 import { en, type TranslationKey } from './en'
 import { mr } from './mr'
@@ -95,10 +96,21 @@ export const useLanguageStore = create<LanguageState>((set) => ({
   },
 }))
 
-/** The translator for the active language. Re-renders on a language change. */
+/**
+ * The translator for the active language. Re-renders on a language change.
+ *
+ * Memoised on the language, so its identity is stable between renders. This
+ * is not an optimisation: an unstable `t` in a `useEffect` dependency array
+ * re-runs that effect on every render, and a form whose reset effect depends
+ * on `t` wipes each keystroke as it is typed. That is exactly what happened
+ * to the crop and sale forms. Keep the useCallback.
+ */
 export function useT() {
   const language = useLanguageStore((s) => s.language)
-  return (key: TranslationKey, vars?: Vars) => translate(language, key, vars)
+  return useCallback(
+    (key: TranslationKey, vars?: Vars) => translate(language, key, vars),
+    [language]
+  )
 }
 
 export function useLanguage(): Language {

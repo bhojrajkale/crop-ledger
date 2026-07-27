@@ -9,6 +9,7 @@ import { useT } from '../i18n'
 const TABS = [
   { to: 'expenses', key: 'tabExpenses' },
   { to: 'members', key: 'tabPeople' },
+  { to: 'harvest', key: 'tabHarvest' },
   { to: 'summary', key: 'tabSummary' },
 ] as const
 
@@ -99,7 +100,7 @@ export function CropLayout() {
                 to={tab.to}
                 className={({ isActive }) =>
                   [
-                    'block text-center min-h-10 leading-10 rounded-xl text-sm font-medium transition-transform active:scale-95',
+                    'block text-center min-h-10 leading-10 rounded-xl text-[13px] font-medium transition-transform active:scale-95 truncate px-1',
                     isActive
                       ? 'bg-[var(--primary-tint)] text-[var(--primary)]'
                       : 'text-[var(--muted)]',

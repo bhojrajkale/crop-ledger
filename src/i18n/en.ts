@@ -157,6 +157,41 @@ export const en = {
   notes: 'Notes',
   notesPlaceholder: 'Optional — bill number, shop, anything worth remembering',
 
+  // Harvest
+  tabHarvest: 'Harvest',
+  noSalesTitle: 'Nothing sold yet',
+  noSalesBody:
+    'When the crop is sold, record what went out and what it fetched. The money is then split equally between everyone on the crop.',
+  addFirstSale: 'Record the first sale',
+  addSale: 'Record a sale',
+  editSale: 'Edit sale',
+  deleteSaleTitle: 'Delete this sale?',
+  deleteSaleBody:
+    '{amount} will be removed from this crop\u2019s revenue and the settlement will be recalculated.',
+  quantity: 'Quantity',
+  quantityMissing: 'Enter how much was sold.',
+  unit: 'Unit',
+  unitQuintal: 'Quintal',
+  unitKg: 'Kg',
+  unitTonne: 'Tonne',
+  unitBag: 'Bag',
+  ratePerUnit: 'Rate per {unit}',
+  rateMissing: 'Enter the rate.',
+  saleTotal: 'Total',
+  receivedBy: 'Money received by',
+  receivedByMissing: 'Pick who received the money.',
+  buyer: 'Buyer',
+  buyerPlaceholder: 'Trader or market (optional)',
+  totalRevenue: 'Revenue',
+  revenuePerHead: '{amount} each',
+  soldQuantity: '{amount} {unit} at {rate} average',
+  netProfit: 'Profit',
+  netLoss: 'Loss',
+  netExplainer: 'Revenue {revenue} minus expenses {expenses}.',
+  holdingAmount: 'holding {amount}',
+  revenueNotSettled:
+    'Nobody has recorded a sale yet, so there is no revenue to divide.',
+
   // Receipts
   receipts: 'Receipts',
   takePhoto: '📷 Take photo',

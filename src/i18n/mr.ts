@@ -162,6 +162,41 @@ export const mr: Record<keyof typeof en, string> = {
   notes: 'नोंद',
   notesPlaceholder: 'ऐच्छिक — बिल क्रमांक, दुकान, लक्षात ठेवण्यासारखे काही',
 
+  // Harvest
+  tabHarvest: 'कापणी',
+  noSalesTitle: 'अजून विक्री झाली नाही',
+  noSalesBody:
+    'पीक विकल्यावर किती माल गेला आणि किती भाव मिळाला ते नोंदवा. ती रक्कम मग पिकातील सर्वांमध्ये समान वाटली जाते.',
+  addFirstSale: 'पहिली विक्री नोंदवा',
+  addSale: 'विक्री नोंदवा',
+  editSale: 'विक्री बदला',
+  deleteSaleTitle: 'ही विक्री हटवायची?',
+  deleteSaleBody:
+    '{amount} या पिकाच्या उत्पन्नातून वजा होतील आणि हिशोब पुन्हा मोजला जाईल.',
+  quantity: 'माल',
+  quantityMissing: 'किती माल विकला ते भरा.',
+  unit: 'एकक',
+  unitQuintal: 'क्विंटल',
+  unitKg: 'किलो',
+  unitTonne: 'टन',
+  unitBag: 'पोते',
+  ratePerUnit: 'प्रति {unit} भाव',
+  rateMissing: 'भाव भरा.',
+  saleTotal: 'एकूण',
+  receivedBy: 'पैसे कोणाकडे आले',
+  receivedByMissing: 'पैसे कोणाकडे आले ते निवडा.',
+  buyer: 'खरेदीदार',
+  buyerPlaceholder: 'व्यापारी किंवा बाजार (ऐच्छिक)',
+  totalRevenue: 'उत्पन्न',
+  revenuePerHead: 'प्रत्येकी {amount}',
+  soldQuantity: '{amount} {unit}, सरासरी भाव {rate}',
+  netProfit: 'नफा',
+  netLoss: 'तोटा',
+  netExplainer: 'उत्पन्न {revenue} वजा खर्च {expenses}.',
+  holdingAmount: '{amount} जवळ आहेत',
+  revenueNotSettled:
+    'अजून कोणतीही विक्री नोंदलेली नाही, त्यामुळे वाटायला उत्पन्न नाही.',
+
   // Receipts
   receipts: 'पावत्या',
   takePhoto: '📷 फोटो काढा',
