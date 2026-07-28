@@ -108,7 +108,7 @@ export const en = {
   splitNWays: 'split {count} ways',
   splitNWaysCustom: 'split {count} ways (custom)',
   amountPending: '{amount} pending',
-  removedMember: 'Removed member',
+  removedMember: 'Removed person',
   viewReceipt: 'Receipt',
   viewNPhotos: '{count} photos',
   deleteExpenseTitle: 'Delete this expense?',
@@ -226,14 +226,14 @@ export const en = {
   stillToPay: 'Still to pay ({count})',
   outstanding: 'Outstanding',
   outstandingExplainer:
-    'Owed to shops and contractors, not between members — so it is kept out of the settlement below until it is actually paid.',
+    'Owed to shops and contractors, not between the people on this crop — so it is kept out of the settlement below until it is actually paid.',
   notRecorded: 'Not recorded',
   paidOfAmount: '{paid} of {total} paid',
   recordPayment: 'Record payment',
   whoOwesWhom: 'Who owes whom',
   allSquare: 'Everyone is square — nothing to settle. ✓',
   nothingBetweenMembers: 'Nothing to settle',
-  nothingBetweenMembersEmphasis: 'between members',
+  nothingBetweenMembersEmphasis: 'between people',
   nothingBetweenMembersRest: '— but {amount} is still owed outside the group.',
   // Sits between the two names in a settlement row. Marathi needs
   // postpositions on both names for a verb to read naturally, so it uses an
@@ -317,8 +317,11 @@ export const en = {
   crops_one: '{count} crop',
   expenses: '{count} expenses',
   expenses_one: '{count} expense',
-  members: '{count} members',
-  members_one: '{count} member',
+  // "people", not "members" — one word for the people on a crop, matching the
+  // tab. The key stays `members` because the domain type is Member[]; only
+  // the word the user reads is unified.
+  members: '{count} people',
+  members_one: '{count} person',
   bills: '{count} bills',
   bills_one: '{count} bill',
 

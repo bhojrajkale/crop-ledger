@@ -73,7 +73,7 @@ export const mr: Record<keyof typeof en, string> = {
   // Members
   addSomeone: 'व्यक्ती जोडा',
   name: 'नाव',
-  duplicateMember: 'या नावाचा सदस्य आधीच या पिकात आहे.',
+  duplicateMember: 'या नावाची व्यक्ती आधीच या पिकात आहे.',
   noMembersTitle: 'अजून कोणीही जोडलेले नाही',
   noMembersBody:
     'या पिकात सहभागी असलेल्या सर्वांना जोडा. प्रत्येक खर्च कोणी दिला आणि कोणावर आहे, हे याच यादीतून निवडाल.',
@@ -110,7 +110,7 @@ export const mr: Record<keyof typeof en, string> = {
   splitNWays: '{count} जणांत वाटणी',
   splitNWaysCustom: '{count} जणांत वाटणी (स्वतःची)',
   amountPending: '{amount} बाकी',
-  removedMember: 'काढलेला सदस्य',
+  removedMember: 'काढलेली व्यक्ती',
   viewReceipt: 'पावती',
   viewNPhotos: '{count} फोटो',
   deleteExpenseTitle: 'हा खर्च हटवायचा?',
@@ -227,14 +227,14 @@ export const mr: Record<keyof typeof en, string> = {
   stillToPay: 'अजून द्यायचे ({count})',
   outstanding: 'बाकी',
   outstandingExplainer:
-    'हे दुकान व मुकादमाला देणे आहे, सदस्यांमधले नाही — म्हणून प्रत्यक्ष दिले जाईपर्यंत ते खालच्या हिशोबात धरलेले नाही.',
+    'हे दुकान व मुकादमाला देणे आहे, व्यक्तींमधले नाही — म्हणून प्रत्यक्ष दिले जाईपर्यंत ते खालच्या हिशोबात धरलेले नाही.',
   notRecorded: 'नोंदवलेले नाही',
   paidOfAmount: '{total} पैकी {paid} दिले',
   recordPayment: 'हप्ता नोंदवा',
   whoOwesWhom: 'कोणी कोणाला द्यायचे',
   allSquare: 'सर्वांचा हिशोब पूर्ण — काही बाकी नाही. ✓',
   nothingBetweenMembers: 'हिशोब पूर्ण',
-  nothingBetweenMembersEmphasis: 'सदस्यांमध्ये',
+  nothingBetweenMembersEmphasis: 'व्यक्तींमध्ये',
   nothingBetweenMembersRest: '— पण बाहेर {amount} अजून देणे आहे.',
   paysConnector: '→',
   nPaymentsSettle: '{count} मध्ये सर्वांचा हिशोब पूर्ण होतो.',
@@ -315,8 +315,11 @@ export const mr: Record<keyof typeof en, string> = {
   crops_one: '{count} पीक',
   expenses: '{count} खर्च',
   expenses_one: '{count} खर्च',
-  members: '{count} सदस्य',
-  members_one: '{count} सदस्य',
+  // व्यक्ती, not सदस्य — one word for the people on a crop, matching the tab.
+  // The key stays `members` because the domain type is Member[]; only the
+  // word the user reads is unified.
+  members: '{count} व्यक्ती',
+  members_one: '{count} व्यक्ती',
   bills: '{count} बिले',
   bills_one: '{count} बिल',
 

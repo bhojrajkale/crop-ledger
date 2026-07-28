@@ -72,15 +72,15 @@ describe('translate', () => {
   })
 
   it('uses the singular form for a count of one', () => {
-    expect(translate('en', 'members', { count: 1 })).toBe('1 member')
-    expect(translate('en', 'members', { count: 3 })).toBe('3 members')
+    expect(translate('en', 'members', { count: 1 })).toBe('1 person')
+    expect(translate('en', 'members', { count: 3 })).toBe('3 people')
   })
 
   it('applies Marathi plurals, which often reuse one form', () => {
     expect(translate('mr', 'crops', { count: 1 })).toBe('1 पीक')
     expect(translate('mr', 'crops', { count: 4 })).toBe('4 पिके')
-    expect(translate('mr', 'members', { count: 1 })).toBe('1 सदस्य')
-    expect(translate('mr', 'members', { count: 5 })).toBe('5 सदस्य')
+    expect(translate('mr', 'members', { count: 1 })).toBe('1 व्यक्ती')
+    expect(translate('mr', 'members', { count: 5 })).toBe('5 व्यक्ती')
   })
 })
 
