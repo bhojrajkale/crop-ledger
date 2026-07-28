@@ -24,7 +24,20 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # Firebase project settings, from Settings → Secrets and variables →
+      # Actions. Not secrets in any real sense — they identify the project and
+      # are readable in the built bundle — but they belong in repository
+      # settings rather than in the source. If they are missing the build
+      # still succeeds and simply ships without cloud backup, so check here
+      # first if the sign-in card has vanished from a deploy.
       - run: npm run build
+        env:
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
