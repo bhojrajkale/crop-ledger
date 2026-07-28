@@ -24,9 +24,13 @@ export function Loading({ label }: { label?: string }) {
       // while waiting.
       className="flex flex-col items-center justify-center gap-3 min-h-[50vh] px-6 text-center"
     >
+      {/* Two adjacent sides carry the colour, so a quarter of the ring is a
+          solid arc. A single coloured edge is too near-symmetric to read a
+          direction from at a glance. `spinner` (index.css) owns the timing —
+          see the note there about why it is not Tailwind's animate-spin. */}
       <span
         aria-hidden="true"
-        className="size-8 rounded-full border-2 border-[var(--hairline)] border-t-[var(--primary)] animate-spin"
+        className="spinner size-8 rounded-full border-[3px] border-[var(--hairline)] border-t-[var(--primary)] border-r-[var(--primary)]"
       />
       <p className="text-sm text-[var(--muted)]">{label ?? t('loading')}</p>
     </div>

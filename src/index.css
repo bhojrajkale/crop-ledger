@@ -141,11 +141,40 @@ body {
   border-radius: 4px;
 }
 
+/*
+ * The loading spinner.
+ *
+ * Deliberately not Tailwind's `animate-spin`. At its 1s period a ring this
+ * uniform aliases against the screen's refresh and reads as turning
+ * backwards — the same stroboscopic effect that makes wagon wheels appear to
+ * spin the wrong way on film. Slowing it to 1.4s, and colouring a full
+ * quarter of the ring rather than a thin top edge, makes the direction
+ * unmistakable. Don't speed this up.
+ */
+@keyframes spin-clockwise {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spinner {
+  animation: spin-clockwise 1.4s linear infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+  }
+
+  /* Exempt: a frozen spinner is not a calmer spinner, it is a broken one.
+     Slowed instead, which is what reducing motion should mean here. */
+  .spinner {
+    animation-duration: 2.4s !important;
   }
 }
