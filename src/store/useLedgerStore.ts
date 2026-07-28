@@ -9,6 +9,9 @@ export type ImportResult =
   | (Extract<ParseResult, { ok: true }> & { photosFailed: number })
   | Extract<ParseResult, { ok: false }>
 
+/** Where the ledger currently being shown is stored. */
+export type StorageKind = 'local' | 'cloud'
+
 interface LedgerState {
   crops: Crop[]
   /** Expenses for the crop currently open. Not every crop's, ever. */
@@ -18,9 +21,19 @@ interface LedgerState {
   loadedCropId: string | null
   loading: boolean
   error: string | null
+  /** Which backing store the rows above came from. */
+  storage: StorageKind
 
   load: () => Promise<void>
   openCrop: (cropId: string) => Promise<void>
+  /**
+   * Points the store at a different backing store and re-reads everything.
+   *
+   * This is the whole cost of moving between the device and the cloud: no
+   * screen knows which one it is looking at, because none of them ever talked
+   * to storage directly.
+   */
+  setRepository: (next: CropRepository, storage: StorageKind) => Promise<void>
 
   saveCrop: (crop: Crop) => Promise<void>
   deleteCrop: (cropId: string) => Promise<void>
@@ -58,7 +71,12 @@ interface LedgerState {
   importBackup: (text: string) => Promise<ImportResult>
 }
 
-const repo: CropRepository = dexieRepository
+/**
+ * The active backing store. Mutable, and read afresh at every call, so
+ * switching accounts is a single assignment rather than a rewiring of the
+ * store's methods.
+ */
+let repo: CropRepository = dexieRepository
 
 const message = (e: unknown) =>
   e instanceof Error ? e.message : 'Something went wrong.'
@@ -70,6 +88,18 @@ export const useLedgerStore = create<LedgerState>((set, get) => ({
   loadedCropId: null,
   loading: true,
   error: null,
+  storage: 'local',
+
+  async setRepository(next, storage) {
+    repo = next
+    // Drop the previous account's rows before reading the new ones. Showing
+    // one ledger under another's heading, even for a moment, is the kind of
+    // thing that gets acted on.
+    set({ crops: [], expenses: [], sales: [], loading: true, storage })
+    await get().load()
+    const cropId = get().loadedCropId
+    if (cropId) await get().openCrop(cropId)
+  },
 
   async load() {
     try {
@@ -205,7 +235,7 @@ export const useLedgerStore = create<LedgerState>((set, get) => ({
   },
 
   async syncReceipts(expense, added, removedIds) {
-    for (const id of removedIds) await repo.deleteReceipt(id)
+    for (const id of removedIds) await repo.deleteReceipt(id, expense.id)
     for (const receipt of added) await repo.saveReceipt(receipt)
 
     const count = (await repo.listReceipts(expense.id)).length

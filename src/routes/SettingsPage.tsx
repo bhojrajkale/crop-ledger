@@ -7,6 +7,7 @@ import { useBackupExport } from '../lib/useBackupExport'
 import { shareableType } from '../lib/share'
 import { buildDate, versionLabel } from '../lib/version'
 import { Chip } from '../components/ui/Chip'
+import { CloudSyncCard } from '../components/CloudSyncCard'
 import {
   LANGUAGES,
   intlLocale,
@@ -18,6 +19,7 @@ import {
 export function SettingsPage() {
   const importBackup = useLedgerStore((s) => s.importBackup)
   const crops = useLedgerStore((s) => s.crops)
+  const storage = useLedgerStore((s) => s.storage)
   const fileInput = useRef<HTMLInputElement>(null)
   const t = useT()
   const language = useLanguage()
@@ -102,7 +104,9 @@ export function SettingsPage() {
       <h1 className="text-2xl font-bold text-[var(--ink)] mb-1 pr-24">
         {t('backupAndRestore')}
       </h1>
-      <p className="text-sm text-[var(--muted)] mb-6">{t('backupIntro')}</p>
+      <p className="text-sm text-[var(--muted)] mb-6">
+        {storage === 'cloud' ? t('backupIntroCloud') : t('backupIntro')}
+      </p>
 
       {status ? (
         <div
@@ -118,6 +122,8 @@ export function SettingsPage() {
           {status.text}
         </div>
       ) : null}
+
+      <CloudSyncCard />
 
       <SectionTitle>{t('language')}</SectionTitle>
       <Card className="mb-6">

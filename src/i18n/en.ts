@@ -62,8 +62,11 @@ export const en = {
   cropSections: 'Crop sections',
   deleteCropTitle: 'Delete {name}?',
   deleteCropDescription: 'This also deletes every expense recorded against it.',
+  // Deliberately silent about where the data lives: with cloud backup on it
+  // is in the account, with it off it is on this phone, and a warning that is
+  // wrong half the time is worse than one that is simply shorter.
   deleteCropBody:
-    'This cannot be undone, and the data only exists on this device. If you might want it back, export a backup first from Backup & restore.',
+    'This cannot be undone. If you might want it back, export a backup first from Backup & restore.',
 
   // Members
   addSomeone: 'Add someone',
@@ -258,9 +261,39 @@ export const en = {
   undo: 'Undo',
   undoPaymentLabel: 'Undo payment of {amount}',
 
+  // Cloud backup
+  cloudSync: 'Cloud backup',
+  cloudSyncOffBody:
+    'Sign in with Google to keep the ledger in your account instead of only on this phone. It then opens on any device you sign in to, and survives losing or replacing the phone.',
+  cloudSyncOnBody:
+    'The ledger is saved in your Google account. Changes are saved as you make them, and go up as soon as there is a signal — so you can carry on entering expenses in the field with no connection.',
+  signInWithGoogle: 'Sign in with Google',
+  signingIn: 'Signing in…',
+  signedInAs: 'Signed in as {name}',
+  signOut: 'Sign out',
+  signOutBody:
+    'Signing out leaves the ledger safe in your account. This phone goes back to showing its own copy until you sign in again.',
+  signInFailed: 'Could not sign in. Check your connection and try again.',
+  signOutFailed: 'Could not sign out just now.',
+  cloudConnecting: 'Connecting to your account…',
+  cloudUploading: "Copying this phone's ledger into your account…",
+  cloudReady: 'Saved in your account.',
+  cloudErrorStatus:
+    "Could not reach your account, so this phone's own copy is being shown. Anything you enter is saved here — sign in again once you have a signal.",
+  cloudOfflineStatus: 'Not signed in — the ledger is on this phone only.',
+  cloudUploaded: 'Moved {crops} and {expenses} into your account.',
+  cloudUploadedPhotos: 'Moved {crops}, {expenses} and {photos} into your account.',
+  cloudPhotosFailed: '{photos} could not be uploaded.',
+  cloudLocalCopyKept:
+    "Your account already had a ledger, so that is what you are seeing. This phone's own copy has been left untouched — restore a backup file if you meant to use it instead.",
+  cloudStatusLabel: 'Cloud backup status',
+  dismiss: 'Dismiss',
+
   // Settings
   backupIntro:
     'Everything is stored on this device only. Nothing is uploaded anywhere, and nothing syncs — so a backup file is the only copy that survives clearing your browser data or switching phones.',
+  backupIntroCloud:
+    'The ledger is kept in your Google account. A backup file is still worth taking now and then — it is readable on its own, and it is what you would restore from if an entry were deleted by mistake.',
   export: 'Export',
   exportBody:
     'Saves {crops}, all their expenses and any receipt photos as a JSON file. Keep it somewhere safe — email it to yourself, or drop it in cloud storage. Photos make the file much larger, so it may take a moment.',

@@ -1,10 +1,14 @@
 import { useEffect, useLayoutEffect, useState } from 'react'
-import { Outlet } from 'react-router'
+import { Link, Outlet } from 'react-router'
 import { useLedgerStore } from '../store/useLedgerStore'
+import { useAuthStore } from '../store/useAuthStore'
+import { useSyncStore, type SyncStatus } from '../store/useSyncStore'
+import { useCloudSync } from '../lib/useCloudSync'
 import { applyTheme, getInitialTheme, type Theme } from '../lib/theme'
 import { UpdatePrompt } from '../components/UpdatePrompt'
 import { useBackupExport, type ExportOutcome } from '../lib/useBackupExport'
 import { useLanguage, useT } from '../i18n'
+import type { TranslationKey } from '../i18n/en'
 
 export function AppLayout() {
   const load = useLedgerStore((s) => s.load)
@@ -12,6 +16,11 @@ export function AppLayout() {
   const error = useLedgerStore((s) => s.error)
   const [theme, setTheme] = useState<Theme>(() => getInitialTheme())
   const [notice, setNotice] = useState<ExportOutcome>(null)
+
+  // Points the ledger at the signed-in account, or at this device when nobody
+  // is signed in. It lives here because it has to be running whichever screen
+  // the app happens to open on.
+  useCloudSync()
 
   // Before paint, so the app never flashes light before switching to dark.
   useLayoutEffect(() => {
@@ -73,6 +82,55 @@ export function AppLayout() {
 }
 
 /**
+ * Where the ledger is being kept, at a glance, and a way through to do
+ * something about it.
+ *
+ * The state worth catching is `error`: the app has quietly fallen back to
+ * this device's own copy, everything still works, and the only sign of it
+ * would otherwise be on a screen nobody visits daily.
+ */
+const CLOUD_ICON: Record<SyncStatus, string> = {
+  offline: '☁️',
+  connecting: '⏳',
+  uploading: '⏳',
+  ready: '☁️',
+  error: '⚠️',
+}
+
+const CLOUD_STATUS_TEXT: Record<SyncStatus, TranslationKey> = {
+  offline: 'cloudOfflineStatus',
+  connecting: 'cloudConnecting',
+  uploading: 'cloudUploading',
+  ready: 'cloudReady',
+  error: 'cloudErrorStatus',
+}
+
+function CloudIndicator() {
+  const t = useT()
+  const available = useAuthStore((s) => s.available)
+  const settled = useAuthStore((s) => s.account) !== undefined
+  const status = useSyncStore((s) => s.status)
+
+  // Nothing to say on a build with no project configured, and nothing honest
+  // to say before the session check has finished.
+  if (!available || !settled) return null
+
+  return (
+    <Link
+      to="/settings"
+      aria-label={t(CLOUD_STATUS_TEXT[status])}
+      title={t(CLOUD_STATUS_TEXT[status])}
+      className="size-9 rounded-full bg-[var(--surface)] border border-[var(--hairline)] text-base flex items-center justify-center active:scale-95 transition-transform"
+      // Signed out, the icon is a prompt rather than a state — dimmed so it
+      // does not read as "backed up".
+      style={status === 'offline' ? { opacity: 0.45 } : undefined}
+    >
+      {CLOUD_ICON[status]}
+    </Link>
+  )
+}
+
+/**
  * The controls pinned to the top-right of every screen.
  *
  * Absolute rather than fixed: a fixed row sits on top of the sticky tab bar
@@ -94,6 +152,7 @@ function HeaderActions({
 
   return (
     <div className="absolute top-[max(0.75rem,env(safe-area-inset-top))] right-3 z-30 flex items-center gap-2">
+      <CloudIndicator />
       {canShare ? (
         <button
           type="button"

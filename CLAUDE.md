@@ -14,6 +14,10 @@ npm run lint      # oxlint
 `npm run build` runs `tsc -b` first, so a type error fails the build. Always
 run it before pushing.
 
+Cloud backup needs `VITE_FIREBASE_*` in `.env.local` (see `.env.local.example`).
+Without them the app builds and runs device-local, which is a supported mode,
+not a broken one.
+
 ## The one structural rule
 
 **`src/domain/` is pure TypeScript — no React imports, no Dexie imports, no
@@ -191,14 +195,57 @@ so it reaches iCloud Drive or WhatsApp in one tap. Rules there:
   large backup outlasts the tap, which is likely with photos. The user must
   end up with the file either way.
 
-## Storage is device-local and has no server copy
+## Two storage backends behind one interface
 
-There is no cloud backup and no sync. Consequences that keep biting if
-forgotten:
+`CropRepository` (`data/repository.ts`) has two implementations, and no screen
+knows which one is live:
+
+- `dexieRepository` — IndexedDB on this device. The default, and the fallback
+  for everything.
+- `cloudRepository(uid)` (`data/cloudRepository.ts`) — Firestore under
+  `users/{uid}/…`, mirroring the Dexie tables one for one so the two stay
+  readable against each other and a backup file restores identically into
+  either.
+
+`useLedgerStore.setRepository(next, kind)` swaps them and re-reads everything;
+`useSyncStore.connect/disconnect` is what calls it, driven by sign-in state
+through the `useCloudSync()` hook mounted in `AppLayout`. Rules for this seam:
+
+- **Everything Firebase is behind a dynamic `import()`.** `data/cloudConfig.ts`
+  is the only cloud module safe to import statically — it holds the env vars
+  and `isCloudConfigured()`, and touches no SDK. A static import anywhere else
+  pulls ~155 KB gzipped into the first paint for a user who may never sign in.
+- **An unconfigured build must still work.** Missing `VITE_FIREBASE_*` means
+  the sign-in card and the header cloud icon do not render and the app is
+  device-local, exactly as it was before sync. A forgotten CI secret must
+  never be a blank screen.
+- **A cloud failure falls back to the device, it does not block.**
+  `useSyncStore.connect` catches, points the store back at Dexie and reports
+  `error`. Losing the network must not cost the user access to their ledger.
+- **First sign-in uploads, but never merges.** `decideUpload()` in
+  `data/cloudSync.ts`: local rows and an empty account → upload; both sides
+  hold data → `skip` and tell the user. Ids survive an export/restore round
+  trip, so two ledgers descended from the same backup collide entry for entry
+  and any automatic merge would overwrite the newer side. The local copy is
+  never deleted after an upload.
+- **`firestore.rules` is the source of truth but is not deployed by CI.** There
+  is no Firebase CLI here; a change has to be pasted into Firebase Console →
+  Firestore → Rules → Publish. The model is one line — a signed-in user reaches
+  everything under their own `users/{uid}` and nothing else.
+- **Receipt bytes cross the wire as Firestore `Bytes`,** and `fromStored()`
+  copies the view (`.slice()`) rather than handing over `.buffer`, which can
+  be a window onto a larger allocation.
+
+## Storage still has to behave as if there were no server copy
+
+Sync does not change the store's discipline, because the app is offline-first
+and the cloud is frequently unreachable:
 
 - **Write to storage before updating UI state.** The store awaits the repository
   and only then calls `set()`. An optimistic update that failed to persist is a
-  lie the user discovers on reload, with no server copy to reconcile against.
+  lie the user discovers on reload. (Firestore's local cache resolves a write
+  before it reaches the server, which is exactly what makes this still fast
+  with no signal.)
 - **Destructive actions need a confirmation that mentions the backup file**, since
   deleted data is genuinely unrecoverable.
 - **Importing a backup replaces everything.** `parseBackup()` validates the whole

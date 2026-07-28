@@ -1,0 +1,40 @@
+rules_version = '2';
+
+// Crop Ledger security rules.
+//
+// The whole model in one line: a signed-in user can touch everything under
+// their own users/{uid} document and nothing else. There is no sharing, no
+// invite path and no public read — the people on a crop are names in the
+// ledger, not accounts, so no second user ever needs access to this data.
+//
+// This file is the source of truth, but it is not deployed by CI. There is no
+// Firebase CLI in this project, so a change here has to be pasted into
+// Firebase Console → Firestore → Rules → Publish by hand. Editing the file
+// alone changes nothing on the server.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    // users/{uid}/crops/{cropId}
+    // users/{uid}/expenses/{expenseId}
+    // users/{uid}/expenses/{expenseId}/receipts/{receiptId}
+    // users/{uid}/sales/{saleId}
+    //
+    // The recursive wildcard covers every subcollection, present and future,
+    // which is what keeps this correct when the schema grows: a new
+    // collection under a user cannot accidentally be left world-readable.
+    match /users/{uid}/{document=**} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // Everything outside users/ is unreachable. Firestore denies by default,
+    // so this is documentation rather than enforcement — but it is the first
+    // thing anyone reading these rules wants to know.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

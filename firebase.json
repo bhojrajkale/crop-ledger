@@ -1,0 +1,15 @@
+{
+  "_comment": "Used only by `npm run test:cloud`, which runs the Firestore emulator so the cloud repository and firestore.rules can be exercised for real. Publishing rules is still a manual paste into the Firebase Console - nothing here deploys.",
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "emulators": {
+    "firestore": {
+      "host": "127.0.0.1",
+      "port": 8080
+    },
+    "ui": {
+      "enabled": false
+    }
+  }
+}

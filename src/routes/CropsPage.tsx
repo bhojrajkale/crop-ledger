@@ -25,7 +25,7 @@ export function CropsPage() {
 
   return (
     <main className="max-w-2xl mx-auto px-4 pb-16 pt-[max(1.5rem,env(safe-area-inset-top))]">
-      <header className="mb-6 pr-24">
+      <header className="mb-6 pr-36">
         <h1 className="text-2xl font-bold text-[var(--ink)]">Crop Ledger</h1>
         <p className="text-sm text-[var(--muted)] mt-0.5">
           {t('appTagline')}

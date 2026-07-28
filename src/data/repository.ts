@@ -34,7 +34,12 @@ export interface CropRepository {
   /** Photos for one expense. Only ever read when someone opens them. */
   listReceipts(expenseId: string): Promise<Receipt[]>
   saveReceipt(receipt: Receipt): Promise<void>
-  deleteReceipt(receiptId: string): Promise<void>
+  /**
+   * The expense is passed alongside the id because a receipt is addressed by
+   * its parent in the cloud layout (a subcollection of the expense), and the
+   * only caller always knows which expense it is removing a photo from.
+   */
+  deleteReceipt(receiptId: string, expenseId: string): Promise<void>
 
   /** Whole-database read/replace, used by the JSON backup file. */
   exportAll(): Promise<BackupPayload>
@@ -117,6 +122,8 @@ export const dexieRepository: CropRepository = {
     await db.receipts.put(receipt)
   },
 
+  // expenseId is part of the interface for the cloud implementation's sake;
+  // locally the receipt id is the primary key and is enough on its own.
   async deleteReceipt(receiptId) {
     await db.receipts.delete(receiptId)
   },
