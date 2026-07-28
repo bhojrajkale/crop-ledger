@@ -235,6 +235,15 @@ through the `useCloudSync()` hook mounted in `AppLayout`. Rules for this seam:
 - **Receipt bytes cross the wire as Firestore `Bytes`,** and `fromStored()`
   copies the view (`.slice()`) rather than handing over `.buffer`, which can
   be a window onto a larger allocation.
+- **Opening a crop is a two-phase read.** `getDocs` waits on the server even
+  when the same rows are cached locally, which is what made opening a crop
+  pause. `cachedCropData()` — optional on the interface, implemented only by
+  the cloud repository — answers from the cache so `openCrop` can paint at
+  once, then the authoritative read overwrites it. It returns **null**, never
+  empty arrays, when nothing is cached: the caller cannot tell "not stored
+  yet" from "this crop has no expenses", and rendering the latter flashes a
+  wrong answer. Both reads sort with the shared `byNewest`, or the list would
+  reshuffle when the fresh copy lands.
 
 ## Storage still has to behave as if there were no server copy
 

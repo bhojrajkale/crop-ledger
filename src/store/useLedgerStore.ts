@@ -124,6 +124,15 @@ export const useLedgerStore = create<LedgerState>((set, get) => ({
     // crop's expenses under another crop's heading.
     set({ expenses: [], sales: [], loadedCropId: cropId, cropLoading: true })
     try {
+      // Paint from whatever this device already holds, when the repository
+      // can answer without the network. The read below still runs and still
+      // wins; this only means the screen is usable while it does, rather than
+      // spinning on rows that were sitting on the phone all along.
+      const cached = await repo.cachedCropData?.(cropId)
+      if (cached && get().loadedCropId === cropId) {
+        set({ expenses: cached.expenses, sales: cached.sales, cropLoading: false })
+      }
+
       const [expenses, sales] = await Promise.all([
         repo.listExpenses(cropId),
         repo.listSales(cropId),
