@@ -31,6 +31,22 @@ export interface CropRepository {
   saveSale(sale: Sale): Promise<void>
   deleteSale(saleId: string): Promise<void>
 
+  /**
+   * Rows the device already holds for a crop, without touching the network.
+   *
+   * Optional, and only worth implementing where a read would otherwise wait
+   * on a server. It exists so opening a crop can paint immediately from what
+   * is already on the phone while the authoritative read catches up — the
+   * difference between a two-second wait and none, on data that was sitting
+   * right there.
+   *
+   * Returns null when there is nothing cached, which the caller must treat as
+   * "keep waiting" rather than "this crop is empty".
+   */
+  cachedCropData?(
+    cropId: string
+  ): Promise<{ expenses: Expense[]; sales: Sale[] } | null>
+
   /** Photos for one expense. Only ever read when someone opens them. */
   listReceipts(expenseId: string): Promise<Receipt[]>
   saveReceipt(receipt: Receipt): Promise<void>

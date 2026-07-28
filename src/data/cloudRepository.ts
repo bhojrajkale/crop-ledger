@@ -4,6 +4,7 @@ import {
   deleteDoc,
   doc,
   getDocs,
+  getDocsFromCache,
   query,
   setDoc,
   where,
@@ -39,6 +40,15 @@ import type { CropRepository } from './repository'
 
 /** Firestore's per-batch write limit. */
 const BATCH_LIMIT = 500
+
+/**
+ * Newest first, by the date on the entry and then by when it was recorded.
+ * Shared by expenses and sales, and by the cached and server-backed reads of
+ * both — if the two orders differed, the list would visibly reshuffle the
+ * moment the fresh copy arrived.
+ */
+const byNewest = <T extends { date: string; createdAt: string }>(a: T, b: T) =>
+  b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt)
 
 /**
  * Strips `undefined` fields. Firestore rejects them outright, and the domain
@@ -195,10 +205,7 @@ export function cloudRepository(
       const rows = (
         await getDocs(query(expenses(), where('cropId', '==', cropId)))
       ).docs.map((d) => d.data() as Expense)
-      return rows.sort(
-        (a, b) =>
-          b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt)
-      )
+      return rows.sort(byNewest)
     },
 
     async saveExpense(expense) {
@@ -239,16 +246,49 @@ export function cloudRepository(
       await deleteDoc(doc(receipts(expenseId), receiptId))
     },
 
+    /**
+     * Reads only what Firestore already has on this device.
+     *
+     * `getDocs` asks the server and waits for it, even when the same rows are
+     * sitting in the local cache — which is why opening a crop used to pause
+     * on a slow connection. This is the same query answered from the cache
+     * alone, so the screen can paint at once while `listExpenses`/`listSales`
+     * fetch the authoritative copy behind it.
+     *
+     * An empty cache returns null rather than empty arrays: the caller cannot
+     * tell "nothing stored yet" from "this crop has no expenses", and
+     * rendering the latter would flash a wrong, alarming answer.
+     */
+    async cachedCropData(cropId) {
+      try {
+        const [expenseDocs, saleDocs] = await Promise.all([
+          getDocsFromCache(query(expenses(), where('cropId', '==', cropId))),
+          getDocsFromCache(query(sales(), where('cropId', '==', cropId))),
+        ])
+        if (expenseDocs.empty && saleDocs.empty) return null
+
+        const cachedExpenses = expenseDocs.docs.map((d) => d.data() as Expense)
+        const cachedSales = saleDocs.docs.map((d) => d.data() as Sale)
+        return {
+          // Same ordering as the server-backed reads, so the rows do not
+          // visibly reshuffle when the fresh copy lands.
+          expenses: cachedExpenses.sort(byNewest),
+          sales: cachedSales.sort(byNewest),
+        }
+      } catch {
+        // No cache, or it could not be read. Not an error worth surfacing —
+        // the real read is already on its way.
+        return null
+      }
+    },
+
     async listSales(cropId) {
       const rows = (
         await getDocs(query(sales(), where('cropId', '==', cropId)))
       ).docs.map((d) => d.data() as Sale)
       // Newest first: the harvest tab is read as a record of what has sold so
       // far, and the most recent sale is the one being checked.
-      return rows.sort(
-        (a, b) =>
-          b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt)
-      )
+      return rows.sort(byNewest)
     },
 
     async saveSale(sale) {

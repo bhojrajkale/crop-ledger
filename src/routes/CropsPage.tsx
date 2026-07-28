@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router'
 import { useLedgerStore } from '../store/useLedgerStore'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, SectionTitle } from '../components/ui/Card'
+import { Loading } from '../components/ui/Loading'
 import { CropModal } from '../components/crops/CropModal'
 import { formatLongDate } from '../lib/format'
 import { intlLocale, useLanguage, useT } from '../i18n'
@@ -33,7 +34,7 @@ export function CropsPage() {
       </header>
 
       {loading ? (
-        <p className="text-sm text-[var(--muted)] px-1">{t('loading')}</p>
+        <Loading />
       ) : crops.length === 0 ? (
         <EmptyState
           emoji="🌾"
