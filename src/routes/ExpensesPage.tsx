@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router'
 import { useLedgerStore } from '../store/useLedgerStore'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState } from '../components/ui/Card'
+import { Loading } from '../components/ui/Loading'
 import { Chip } from '../components/ui/Chip'
 import { Modal } from '../components/ui/Modal'
 import { ExpenseModal } from '../components/expenses/ExpenseModal'
@@ -21,6 +22,7 @@ export function ExpensesPage() {
   const { cropId } = useParams<{ cropId: string }>()
   const crops = useLedgerStore((s) => s.crops)
   const expenses = useLedgerStore((s) => s.expenses)
+  const cropLoading = useLedgerStore((s) => s.cropLoading)
   const deleteExpense = useLedgerStore((s) => s.deleteExpense)
   const listReceipts = useLedgerStore((s) => s.listReceipts)
   const t = useT()
@@ -66,6 +68,10 @@ export function ExpensesPage() {
   }, [expenses, search, categoryFilter, pendingOnly, t])
 
   if (!crop) return null
+
+  // Ahead of the empty-state check below: without this, a slow read renders
+  // "no expenses yet" over a crop that has plenty.
+  if (cropLoading) return <Loading />
 
   const memberName = (id: string) =>
     crop.members.find((m) => m.id === id)?.name ?? t('removedMember')

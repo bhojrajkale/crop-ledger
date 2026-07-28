@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useNavigate, useParams } from 'react-router'
 import { useLedgerStore } from '../store/useLedgerStore'
 import { Button } from '../components/ui/Button'
+import { Loading } from '../components/ui/Loading'
 import { Modal } from '../components/ui/Modal'
 import { CropModal } from '../components/crops/CropModal'
 import { useT } from '../i18n'
@@ -34,9 +35,7 @@ export function CropLayout() {
 
   // Wait for the initial load before deciding a crop is missing, otherwise a
   // direct link or a refresh would bounce to the list every time.
-  if (loading) {
-    return <p className="p-6 text-sm text-[var(--muted)]">{t('loading')}</p>
-  }
+  if (loading) return <Loading />
 
   if (!crop) {
     return (

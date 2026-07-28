@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useParams } from 'react-router'
 import { useLedgerStore } from '../store/useLedgerStore'
 import { Card, EmptyState, SectionTitle } from '../components/ui/Card'
+import { Loading } from '../components/ui/Loading'
 import { Avatar } from '../components/ui/Chip'
 import { computeBalances, computeTotals, minimizeTransfers } from '../domain/settlement'
 import { computeOutstanding } from '../domain/payments'
@@ -19,6 +20,7 @@ export function SummaryPage() {
   const crops = useLedgerStore((s) => s.crops)
   const expenses = useLedgerStore((s) => s.expenses)
   const sales = useLedgerStore((s) => s.sales)
+  const cropLoading = useLedgerStore((s) => s.cropLoading)
 
   const crop = crops.find((c) => c.id === cropId)
   const members = useMemo(() => crop?.members ?? [], [crop])
@@ -42,6 +44,10 @@ export function SummaryPage() {
   const locale = intlLocale(useLanguage())
 
   if (!crop) return null
+
+  // Every figure here is derived from the rows being read. Rendering mid-read
+  // shows a settlement of zero — not a slow answer, a wrong one.
+  if (cropLoading) return <Loading />
 
   const memberName = (id: string) =>
     members.find((m) => m.id === id)?.name ?? t('removedMember')

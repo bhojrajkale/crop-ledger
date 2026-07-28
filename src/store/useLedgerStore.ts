@@ -20,6 +20,15 @@ interface LedgerState {
   sales: Sale[]
   loadedCropId: string | null
   loading: boolean
+  /**
+   * True while the open crop's expenses and sales are being read.
+   *
+   * Separate from `loading`, which covers the crop list. A screen that does
+   * not know the difference renders its "nothing here yet" empty state during
+   * the read — telling the user their expenses are gone, every time they open
+   * a crop over a slow connection.
+   */
+  cropLoading: boolean
   error: string | null
   /** Which backing store the rows above came from. */
   storage: StorageKind
@@ -87,6 +96,7 @@ export const useLedgerStore = create<LedgerState>((set, get) => ({
   sales: [],
   loadedCropId: null,
   loading: true,
+  cropLoading: false,
   error: null,
   storage: 'local',
 
@@ -112,16 +122,21 @@ export const useLedgerStore = create<LedgerState>((set, get) => ({
   async openCrop(cropId) {
     // Clear the previous crop's rows first so a slow read can never show one
     // crop's expenses under another crop's heading.
-    set({ expenses: [], sales: [], loadedCropId: cropId })
+    set({ expenses: [], sales: [], loadedCropId: cropId, cropLoading: true })
     try {
       const [expenses, sales] = await Promise.all([
         repo.listExpenses(cropId),
         repo.listSales(cropId),
       ])
       // Guard against an out-of-order resolve if the user switched crops
-      // while this read was in flight.
-      if (get().loadedCropId === cropId) set({ expenses, sales, error: null })
+      // while this read was in flight. The flag is left alone in that case
+      // too — the newer read owns it, and clearing it here would drop the
+      // spinner while that one is still running.
+      if (get().loadedCropId === cropId) {
+        set({ expenses, sales, cropLoading: false, error: null })
+      }
     } catch (e) {
+      if (get().loadedCropId === cropId) set({ cropLoading: false })
       set({ error: message(e) })
     }
   },

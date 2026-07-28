@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router'
 import { useLedgerStore } from '../store/useLedgerStore'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState } from '../components/ui/Card'
+import { Loading } from '../components/ui/Loading'
 import { Modal } from '../components/ui/Modal'
 import { SaleModal } from '../components/harvest/SaleModal'
 import { computeRevenue } from '../domain/revenue'
@@ -17,6 +18,7 @@ export function HarvestPage() {
   const crops = useLedgerStore((s) => s.crops)
   const expenses = useLedgerStore((s) => s.expenses)
   const sales = useLedgerStore((s) => s.sales)
+  const cropLoading = useLedgerStore((s) => s.cropLoading)
   const deleteSale = useLedgerStore((s) => s.deleteSale)
   const t = useT()
   const locale = intlLocale(useLanguage())
@@ -38,6 +40,10 @@ export function HarvestPage() {
   )
 
   if (!crop) return null
+
+  // Ahead of the empty states below — the revenue figures are read from the
+  // same rows, so showing them mid-read would show a total of zero.
+  if (cropLoading) return <Loading />
 
   const memberName = (id: string) =>
     members.find((m) => m.id === id)?.name ?? t('removedMember')
