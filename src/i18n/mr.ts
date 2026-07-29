@@ -259,6 +259,25 @@ export const mr: Record<keyof typeof en, string> = {
   undo: 'रद्द करा',
   undoPaymentLabel: '{amount} चा हप्ता रद्द करा',
 
+  // Exporting a season's accounts
+  shareAccounts: 'हा हिशेब शेअर करा',
+  shareAccountsBody:
+    'या पिकाला आलेला संपूर्ण खर्च, मिळालेले उत्पन्न आणि कोणी कोणाला किती द्यायचे — हे सर्व एका कागदावर. ॲप न वापरणाऱ्या सहभागी व्यक्तींनाही देता येईल.',
+  printStatement: 'छापा / PDF म्हणून जतन करा',
+  downloadSpreadsheet: 'एक्सेल फाइल घ्या',
+  generatedOn: '{date} रोजी तयार',
+  printBlocked:
+    'ब्राउझरने छपाईची खिडकी अडवली. या साइटसाठी पॉप-अप सुरू करून पुन्हा प्रयत्न करा.',
+  spreadsheetSaved: 'फाइल डाउनलोड झाली.',
+  exportFailed: 'ती फाइल तयार करता आली नाही.',
+  columnPaid: 'दिलेले',
+  columnShare: 'वाटा',
+  columnReceived: 'मिळालेले',
+  columnBalance: 'शिल्लक',
+  columnFrom: 'कोणाकडून',
+  columnTo: 'कोणाला',
+  stillToPayPlain: 'अजून द्यायचे',
+
   // Cloud backup
   cloudSync: 'क्लाउड बॅकअप',
   cloudSyncOffBody:

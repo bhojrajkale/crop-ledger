@@ -12,6 +12,9 @@ import { Button } from '../components/ui/Button'
 import { categoryLabel, getCategory } from '../domain/categories'
 import { formatINR } from '../domain/money'
 import { formatDate, initials } from '../lib/format'
+import { buildStatement } from '../lib/statement'
+import { downloadCsv, statementFilename, statementToCsv } from '../lib/csv'
+import { printStatement, statementToHtml } from '../lib/printStatement'
 import { intlLocale, useLanguage, useT } from '../i18n'
 import type { CategoryId, Expense } from '../domain/types'
 
@@ -40,8 +43,46 @@ export function SummaryPage() {
     [members, sales, totals.total]
   )
   const [payingOff, setPayingOff] = useState<Expense | null>(null)
+  const [exportNotice, setExportNotice] = useState<string>()
   const t = useT()
-  const locale = intlLocale(useLanguage())
+  const language = useLanguage()
+  const locale = intlLocale(language)
+
+  /**
+   * Built on demand rather than memoised: this runs on a tap, not a render,
+   * and holding a second copy of the season's rows in memory for a button
+   * nobody presses most days is the wrong trade on a phone.
+   */
+  const statement = () =>
+    crop
+      ? buildStatement({ crop, expenses, sales, t, locale })
+      : null
+
+  // No await before window.open — Safari refuses a window opened after the
+  // user gesture has been lost, and the whole thing is synchronous anyway.
+  const onPrint = () => {
+    const built = statement()
+    if (!built) return
+    setExportNotice(
+      printStatement(statementToHtml(built, language, locale))
+        ? undefined
+        : t('printBlocked')
+    )
+  }
+
+  const onDownload = () => {
+    const built = statement()
+    if (!built) return
+    try {
+      downloadCsv(
+        statementToCsv(built),
+        statementFilename(crop!.name, crop!.season, 'csv')
+      )
+      setExportNotice(t('spreadsheetSaved'))
+    } catch {
+      setExportNotice(t('exportFailed'))
+    }
+  }
 
   if (!crop) return null
 
@@ -375,6 +416,26 @@ export function SummaryPage() {
               </div>
             )
           })}
+        </Card>
+      </section>
+
+      <section>
+        <SectionTitle>{t('shareAccounts')}</SectionTitle>
+        <Card>
+          <p className="text-sm text-[var(--muted)] mb-3">
+            {t('shareAccountsBody')}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="primary" onClick={onPrint}>
+              {t('printStatement')}
+            </Button>
+            <Button onClick={onDownload}>{t('downloadSpreadsheet')}</Button>
+          </div>
+          {exportNotice ? (
+            <p role="status" className="text-sm text-[var(--muted)] mt-3">
+              {exportNotice}
+            </p>
+          ) : null}
         </Card>
       </section>
 

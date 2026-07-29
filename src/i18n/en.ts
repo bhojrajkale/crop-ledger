@@ -289,6 +289,27 @@ export const en = {
   cloudStatusLabel: 'Cloud backup status',
   dismiss: 'Dismiss',
 
+  // Exporting a season's accounts
+  shareAccounts: 'Share these accounts',
+  shareAccountsBody:
+    "Everything this crop cost, what came in, and who owes whom — as one sheet you can hand to the people involved, whether or not they use the app.",
+  printStatement: 'Print / Save as PDF',
+  downloadSpreadsheet: 'Download spreadsheet',
+  generatedOn: 'Generated {date}',
+  printBlocked:
+    'Your browser blocked the print window. Allow pop-ups for this site and try again.',
+  spreadsheetSaved: 'Spreadsheet downloaded.',
+  exportFailed: 'Could not build that file.',
+  // Column headings. Deliberately short — these sit above figures in a table,
+  // not in a sentence, and a long heading pushes the numbers apart.
+  columnPaid: 'Paid',
+  columnShare: 'Share',
+  columnReceived: 'Received',
+  columnBalance: 'Balance',
+  columnFrom: 'From',
+  columnTo: 'To',
+  stillToPayPlain: 'Still to pay',
+
   // Settings
   backupIntro:
     'Everything is stored on this device only. Nothing is uploaded anywhere, and nothing syncs — so a backup file is the only copy that survives clearing your browser data or switching phones.',
