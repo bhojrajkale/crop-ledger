@@ -465,3 +465,69 @@ describe('explainBalances', () => {
     expect(bhojraj.revenueShare).toBe(1980000)
   })
 })
+
+describe('one expense paid by two people in unequal amounts', () => {
+  // The scenario: ₹8,000 of seed, Bhojraj puts in ₹5,000 and Ganesh ₹3,000,
+  // and the cost is shared equally. Each owes ₹4,000, so Ganesh is ₹1,000
+  // short and Bhojraj ₹1,000 up.
+  const pair: Member[] = [
+    { id: 'm1', name: 'Bhojraj' },
+    { id: 'm2', name: 'Ganesh' },
+  ]
+
+  const shared: Expense[] = [
+    {
+      id: 'e1',
+      cropId: 'c1',
+      amount: 800000,
+      category: 'seeds',
+      date: '2026-06-02',
+      notes: '',
+      payments: [
+        { id: 'p1', memberId: 'm1', amount: 500000, paidAt: '2026-06-02' },
+        { id: 'p2', memberId: 'm2', amount: 300000, paidAt: '2026-06-02' },
+      ],
+      owedBy: ['m1', 'm2'],
+      createdAt: '2026-06-02T00:00:00.000Z',
+    },
+  ]
+
+  it('settles it with a single ₹1,000 transfer', () => {
+    const transfers = minimizeTransfers(computeBalances(pair, shared))
+    expect(transfers).toEqual([{ from: 'm2', to: 'm1', amount: 100000 }])
+  })
+
+  it('breaks down to what each put in against an equal share', () => {
+    const parts = explainBalances(pair, shared)
+    expect(parts.get('m1')).toMatchObject({
+      paidOut: 500000,
+      expenseShare: 400000,
+      balance: 100000,
+    })
+    expect(parts.get('m2')).toMatchObject({
+      paidOut: 300000,
+      expenseShare: 400000,
+      balance: -100000,
+    })
+  })
+
+  it('does not care in which order the two payments were recorded', () => {
+    const reversed: Expense[] = [
+      { ...shared[0]!, payments: [...shared[0]!.payments].reverse() },
+    ]
+    expect(computeBalances(pair, reversed)).toEqual(computeBalances(pair, shared))
+  })
+
+  it('charges only the paid part while some of it is still on credit', () => {
+    // Half-entered: Bhojraj's ₹5,000 is in, Ganesh has not paid his ₹3,000
+    // yet. Ganesh should owe ₹2,500 — his share of the money that has
+    // actually changed hands — not ₹4,000, which would bill him for a debt
+    // the shop is still carrying.
+    const partly: Expense[] = [
+      { ...shared[0]!, payments: [shared[0]!.payments[0]!] },
+    ]
+    const parts = explainBalances(pair, partly)
+    expect(parts.get('m1')?.balance).toBe(250000)
+    expect(parts.get('m2')?.balance).toBe(-250000)
+  })
+})
