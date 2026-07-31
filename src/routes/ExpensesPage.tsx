@@ -13,6 +13,7 @@ import { resolveSplit } from '../domain/split'
 import { computeTotals } from '../domain/settlement'
 import { amountOutstanding, isPending } from '../domain/payments'
 import { ReceiptViewer } from '../components/expenses/ReceiptViewer'
+import { RecordPaymentModal } from '../components/expenses/RecordPaymentModal'
 import type { Receipt } from '../domain/types'
 import { formatDate } from '../lib/format'
 import { intlLocale, useLanguage, useT } from '../i18n'
@@ -31,6 +32,7 @@ export function ExpensesPage() {
   const [editing, setEditing] = useState<Expense | null>(null)
   const [removing, setRemoving] = useState<Expense | null>(null)
   const [viewing, setViewing] = useState<Receipt[] | null>(null)
+  const [payingOff, setPayingOff] = useState<Expense | null>(null)
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
   const [pendingOnly, setPendingOnly] = useState(false)
@@ -181,6 +183,7 @@ export function ExpensesPage() {
                     memberName={memberName}
                     onEdit={() => setEditing(expense)}
                     onDelete={() => setRemoving(expense)}
+                    onRecordPayment={() => setPayingOff(expense)}
                     onViewReceipts={async () => {
                       // Images are fetched only on tap, never as part of the
                       // list read that runs on every render.
@@ -208,6 +211,14 @@ export function ExpensesPage() {
       {viewing ? (
         <ReceiptViewer receipts={viewing} onClose={() => setViewing(null)} />
       ) : null}
+
+      {/* The same modal the Summary tab opens — one way to record a payment,
+          reachable from either screen. */}
+      <RecordPaymentModal
+        expense={payingOff}
+        members={crop.members}
+        onClose={() => setPayingOff(null)}
+      />
 
       <Modal
         open={removing !== null}
@@ -249,12 +260,14 @@ function ExpenseRow({
   onEdit,
   onDelete,
   onViewReceipts,
+  onRecordPayment,
 }: {
   expense: Expense
   memberName: (id: string) => string
   onEdit: () => void
   onDelete: () => void
   onViewReceipts: () => void
+  onRecordPayment: () => void
 }) {
   const t = useT()
   const locale = intlLocale(useLanguage())
@@ -307,12 +320,25 @@ function ExpenseRow({
           )}
         </p>
 
+        {/* The pending badge and the way to act on it, together. They used to
+            be on different tabs: the row said "₹3,200 pending" and the only
+            button that could clear it lived on the Summary screen, which is
+            not where anyone looks after spotting an unpaid bill. */}
         {outstanding > 0 ? (
-          <p className="inline-flex items-center gap-1.5 text-xs font-medium mt-1.5 rounded-full px-2 py-1 bg-[var(--warning-tint)] text-[var(--warning)]">
-            <span aria-hidden="true">⏳</span>
-            {t('amountPending', { amount: formatINR(outstanding) })}
-            {expense.owedTo ? ` · ${expense.owedTo}` : ''}
-          </p>
+          <div className="flex flex-wrap items-center gap-2 mt-1.5">
+            <p className="inline-flex items-center gap-1.5 text-xs font-medium rounded-full px-2 py-1 bg-[var(--warning-tint)] text-[var(--warning)]">
+              <span aria-hidden="true">⏳</span>
+              {t('amountPending', { amount: formatINR(outstanding) })}
+              {expense.owedTo ? ` · ${expense.owedTo}` : ''}
+            </p>
+            <button
+              type="button"
+              onClick={onRecordPayment}
+              className="text-xs font-medium rounded-full px-2.5 py-1 bg-[var(--primary)] text-[var(--primary-ink)] active:scale-95 transition-transform"
+            >
+              {t('recordPayment')}
+            </button>
+          </div>
         ) : null}
 
         {expense.notes ? (
