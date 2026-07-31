@@ -3,6 +3,7 @@ import {
   computeBalances,
   computeTotals,
   countMemberExpenses,
+  explainBalances,
   minimizeTransfers,
 } from './settlement'
 import { sum, toPaise } from './money'
@@ -372,5 +373,95 @@ describe('computeTotals with credit', () => {
       b: toPaise(250),
       c: 0,
     })
+  })
+})
+
+describe('explainBalances', () => {
+  const members: Member[] = [
+    { id: 'm1', name: 'Bhojraj' },
+    { id: 'm2', name: 'Ganesh' },
+  ]
+
+  /** ₹18,200 of expenses: Bhojraj paid ₹11,000, Ganesh ₹7,200. */
+  const expenses: Expense[] = [
+    {
+      id: 'e1',
+      cropId: 'c1',
+      amount: 1100000,
+      category: 'seeds',
+      date: '2026-06-02',
+      notes: '',
+      payments: [
+        { id: 'p1', memberId: 'm1', amount: 1100000, paidAt: '2026-06-02' },
+      ],
+      owedBy: ['m1', 'm2'],
+      createdAt: '2026-06-02T00:00:00.000Z',
+    },
+    {
+      id: 'e2',
+      cropId: 'c1',
+      amount: 720000,
+      category: 'labour',
+      date: '2026-07-02',
+      notes: '',
+      payments: [
+        { id: 'p2', memberId: 'm2', amount: 720000, paidAt: '2026-07-02' },
+      ],
+      owedBy: ['m1', 'm2'],
+      createdAt: '2026-07-02T00:00:00.000Z',
+    },
+  ]
+
+  /** ₹39,600 of harvest, all collected by Ganesh. */
+  const sales: Sale[] = [
+    {
+      id: 's1',
+      cropId: 'c1',
+      receivedBy: 'm2',
+      quantity: 18,
+      unit: 'quintal',
+      rate: 220000,
+      total: 3960000,
+      date: '2026-11-01',
+      createdAt: '2026-11-01T00:00:00.000Z',
+    },
+  ]
+
+  it('splits a balance into parts that add back up to it', () => {
+    // The guarantee the UI leans on: an explanation that did not reconstruct
+    // the figure it explains would be worse than no explanation.
+    for (const parts of explainBalances(members, expenses, sales).values()) {
+      expect(
+        parts.paidOut -
+          parts.expenseShare +
+          parts.revenueShare -
+          parts.revenueHeld
+      ).toBe(parts.balance)
+    }
+  })
+
+  it('agrees with computeBalances', () => {
+    const balances = computeBalances(members, expenses, sales)
+    for (const [id, parts] of explainBalances(members, expenses, sales)) {
+      expect(parts.balance).toBe(balances.get(id))
+    }
+  })
+
+  it('separates money someone is holding from money they owe', () => {
+    // Ganesh collected the whole harvest. Almost all of what he "owes" is the
+    // group's own sale money, not a debt he ran up — which is the single
+    // thing this breakdown exists to make visible.
+    const ganesh = explainBalances(members, expenses, sales).get('m2')!
+    expect(ganesh.paidOut).toBe(720000)
+    expect(ganesh.expenseShare).toBe(910000)
+    expect(ganesh.revenueShare).toBe(1980000)
+    expect(ganesh.revenueHeld).toBe(3960000)
+    expect(ganesh.balance).toBe(-2170000) // owes ₹21,700
+
+    const bhojraj = explainBalances(members, expenses, sales).get('m1')!
+    expect(bhojraj.balance).toBe(2170000) // gets ₹21,700
+    // Only ₹1,900 of that is the expense side; the rest is his harvest share.
+    expect(bhojraj.paidOut - bhojraj.expenseShare).toBe(190000)
+    expect(bhojraj.revenueShare).toBe(1980000)
   })
 })

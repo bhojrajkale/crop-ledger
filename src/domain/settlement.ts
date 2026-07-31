@@ -32,14 +32,63 @@ export function computeBalances(
   sales: Sale[] = []
 ): Map<string, Paise> {
   const balances = new Map<string, Paise>()
-  for (const member of members) balances.set(member.id, 0)
+  for (const [id, parts] of explainBalances(members, expenses, sales)) {
+    balances.set(id, parts.balance)
+  }
+  return balances
+}
 
-  const credit = (memberId: string, amount: Paise) => {
+/**
+ * The parts a balance is made of, per member:
+ *
+ *     balance = paidOut − expenseShare + revenueShare − revenueHeld
+ *
+ * A settlement figure on its own is something the user has to
+ * reverse-engineer, and never more so than once a harvest is involved: most
+ * of what one person appears to "owe" is usually the group's sale money
+ * sitting in their pocket, not a debt they ran up. This is what the app shows
+ * when asked how a figure was arrived at.
+ *
+ * computeBalances is derived from this rather than adding up its own totals,
+ * so an explanation can never drift from the number it explains.
+ */
+export interface BalanceBreakdown {
+  /** Money this member handed over for expenses. */
+  paidOut: Paise
+  /** Their share of the expense money that has actually been paid. */
+  expenseShare: Paise
+  /** Their equal share of everything the harvest brought in. */
+  revenueShare: Paise
+  /** Sale money they collected, which belongs to the group. */
+  revenueHeld: Paise
+  balance: Paise
+}
+
+type BalancePart = keyof Omit<BalanceBreakdown, 'balance'>
+
+export function explainBalances(
+  members: Member[],
+  expenses: Expense[],
+  sales: Sale[] = []
+): Map<string, BalanceBreakdown> {
+  const parts = new Map<string, BalanceBreakdown>()
+  for (const member of members) {
+    parts.set(member.id, {
+      paidOut: 0,
+      expenseShare: 0,
+      revenueShare: 0,
+      revenueHeld: 0,
+      balance: 0,
+    })
+  }
+
+  const add = (memberId: string, part: BalancePart, amount: Paise) => {
     // Members removed after an expense was recorded are intentionally not
     // resurrected here — their share is dropped rather than silently
     // reassigned. countMemberExpenses() warns before that removal happens.
-    if (!balances.has(memberId)) return
-    balances.set(memberId, (balances.get(memberId) ?? 0) + amount)
+    const entry = parts.get(memberId)
+    if (!entry) return
+    entry[part] += amount
   }
 
   for (const expense of expenses) {
@@ -48,23 +97,28 @@ export function computeBalances(
     if (paid === 0) continue
 
     for (const payment of expense.payments) {
-      credit(payment.memberId, payment.amount)
+      add(payment.memberId, 'paidOut', payment.amount)
     }
     for (const share of allocateProportionally(paid, resolveSplit(expense))) {
-      credit(share.memberId, -share.amount)
+      add(share.memberId, 'expenseShare', share.amount)
     }
   }
 
   const memberIds = members.map((m) => m.id)
   for (const sale of sales) {
     if (memberIds.length === 0) continue
-    credit(sale.receivedBy, -sale.total)
+    add(sale.receivedBy, 'revenueHeld', sale.total)
     for (const share of splitEqually(sale.total, memberIds)) {
-      credit(share.memberId, share.amount)
+      add(share.memberId, 'revenueShare', share.amount)
     }
   }
 
-  return balances
+  for (const entry of parts.values()) {
+    entry.balance =
+      entry.paidOut - entry.expenseShare + entry.revenueShare - entry.revenueHeld
+  }
+
+  return parts
 }
 
 /**

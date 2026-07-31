@@ -259,6 +259,18 @@ export const mr: Record<keyof typeof en, string> = {
   undo: 'रद्द करा',
   undoPaymentLabel: '{amount} चा हप्ता रद्द करा',
 
+  // हिशेब कसा झाला
+  howWorkedOut: 'हा हिशेब कसा झाला',
+  explainBalance: 'कसे?',
+  breakdownPaidOut: 'खर्चासाठी दिलेले',
+  breakdownExpenseShare: 'खर्चातील त्यांचा वाटा',
+  breakdownRevenueShare: 'उत्पन्नातील त्यांचा वाटा',
+  breakdownRevenueHeld: 'त्यांच्याकडे आलेले विक्रीचे पैसे',
+  breakdownGets: 'त्यांना मिळणार',
+  breakdownOwes: 'त्यांनी द्यायचे',
+  breakdownHoldingNote:
+    'यातले बहुतेक त्यांचे देणे नाही — विक्रीचे {amount} त्यांच्याकडे आहेत, जे सर्वांचे आहेत.',
+
   // Exporting a season's accounts
   shareAccounts: 'हा हिशेब शेअर करा',
   shareAccountsBody:

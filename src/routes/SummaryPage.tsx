@@ -4,10 +4,15 @@ import { useLedgerStore } from '../store/useLedgerStore'
 import { Card, EmptyState, SectionTitle } from '../components/ui/Card'
 import { Loading } from '../components/ui/Loading'
 import { Avatar } from '../components/ui/Chip'
-import { computeBalances, computeTotals, minimizeTransfers } from '../domain/settlement'
+import {
+  computeTotals,
+  explainBalances,
+  minimizeTransfers,
+} from '../domain/settlement'
 import { computeOutstanding } from '../domain/payments'
 import { computeRevenue } from '../domain/revenue'
 import { RecordPaymentModal } from '../components/expenses/RecordPaymentModal'
+import { BalanceBreakdownModal } from '../components/summary/BalanceBreakdownModal'
 import { Button } from '../components/ui/Button'
 import { categoryLabel, getCategory } from '../domain/categories'
 import { formatINR } from '../domain/money'
@@ -16,7 +21,7 @@ import { buildStatement } from '../lib/statement'
 import { downloadCsv, statementFilename, statementToCsv } from '../lib/csv'
 import { printStatement, statementToHtml } from '../lib/printStatement'
 import { intlLocale, useLanguage, useT } from '../i18n'
-import type { CategoryId, Expense } from '../domain/types'
+import type { CategoryId, Expense, Member } from '../domain/types'
 
 export function SummaryPage() {
   const { cropId } = useParams<{ cropId: string }>()
@@ -32,9 +37,15 @@ export function SummaryPage() {
     () => computeTotals(members, expenses),
     [members, expenses]
   )
-  const balances = useMemo(
-    () => computeBalances(members, expenses, sales),
+  // One pass produces both the balances and the parts they are made of, so
+  // the explanation shown on tap cannot disagree with the figure it explains.
+  const breakdowns = useMemo(
+    () => explainBalances(members, expenses, sales),
     [members, expenses, sales]
+  )
+  const balances = useMemo(
+    () => new Map([...breakdowns].map(([id, parts]) => [id, parts.balance])),
+    [breakdowns]
   )
   const transfers = useMemo(() => minimizeTransfers(balances), [balances])
   const outstanding = useMemo(() => computeOutstanding(expenses), [expenses])
@@ -43,6 +54,7 @@ export function SummaryPage() {
     [members, sales, totals.total]
   )
   const [payingOff, setPayingOff] = useState<Expense | null>(null)
+  const [explaining, setExplaining] = useState<Member | null>(null)
   const [exportNotice, setExportNotice] = useState<string>()
   const t = useT()
   const language = useLanguage()
@@ -357,7 +369,7 @@ export function SummaryPage() {
                           : t('owes', { amount: formatINR(-balance) })}
                     </span>
                   </div>
-                  <div className="flex gap-6 mt-2.5 pt-2.5 border-t border-[var(--hairline)] text-sm">
+                  <div className="flex items-center gap-6 mt-2.5 pt-2.5 border-t border-[var(--hairline)] text-sm">
                     <span className="text-[var(--muted)]">
                       {t('paidLabel')}{' '}
                       <span className="text-[var(--ink)] tnum font-medium">
@@ -370,6 +382,16 @@ export function SummaryPage() {
                         {formatINR(owes)}
                       </span>
                     </span>
+                    {/* Paid and Share alone do not add up to the figure above
+                        once credit or a harvest is in play. Rather than hide
+                        that, offer the working. */}
+                    <button
+                      type="button"
+                      onClick={() => setExplaining(member)}
+                      className="ml-auto text-[var(--primary)] font-medium active:scale-95 transition-transform"
+                    >
+                      {t('explainBalance')}
+                    </button>
                   </div>
                 </Card>
               </li>
@@ -443,6 +465,12 @@ export function SummaryPage() {
         expense={payingOff}
         members={members}
         onClose={() => setPayingOff(null)}
+      />
+
+      <BalanceBreakdownModal
+        member={explaining}
+        parts={explaining ? (breakdowns.get(explaining.id) ?? null) : null}
+        onClose={() => setExplaining(null)}
       />
     </div>
   )

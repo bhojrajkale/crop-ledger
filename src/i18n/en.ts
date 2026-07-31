@@ -291,6 +291,18 @@ export const en = {
   cloudStatusLabel: 'Cloud backup status',
   dismiss: 'Dismiss',
 
+  // How a settlement figure was arrived at
+  howWorkedOut: 'How this is worked out',
+  explainBalance: 'How?',
+  breakdownPaidOut: 'Paid for expenses',
+  breakdownExpenseShare: 'Their share of the expenses',
+  breakdownRevenueShare: 'Their share of the harvest',
+  breakdownRevenueHeld: 'Harvest money they collected',
+  breakdownGets: 'The group owes them',
+  breakdownOwes: 'They owe the group',
+  breakdownHoldingNote:
+    'Most of this is not a debt they ran up — they are holding {amount} of the harvest money that belongs to everyone.',
+
   // Exporting a season's accounts
   shareAccounts: 'Share these accounts',
   shareAccountsBody:
