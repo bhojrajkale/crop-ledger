@@ -280,12 +280,23 @@ function ExpenseRow({
       : null
   const outstanding = amountOutstanding(expense)
 
+  // Several people paying one bill between them reads differently from one
+  // person clearing a debt in instalments, even though both are just a list
+  // of payments. Distinct people on the same day is the first; anything else
+  // is the second.
+  const paidTogether =
+    payers.length > 1 &&
+    payers.length === expense.payments.length &&
+    new Set(expense.payments.map((p) => p.paidAt)).size === 1
+
   const paidLabel =
     payers.length === 0
       ? t('unpaid')
       : payers.length === 1
         ? t('memberPaid', { name: memberName(payers[0]!) })
-        : t('nPartPayments', { count: payers.length })
+        : paidTogether
+          ? t('nPeoplePaid', { names: payers.map(memberName).join(', ') })
+          : t('nPartPayments', { count: payers.length })
 
   return (
     <Card className="flex items-start gap-3">
