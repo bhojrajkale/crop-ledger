@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useState } from 'react'
 import { Link, Outlet } from 'react-router'
-import { useLedgerStore } from '../store/useLedgerStore'
+import { SYNC_FAILED, useLedgerStore } from '../store/useLedgerStore'
 import { useAuthStore } from '../store/useAuthStore'
 import { useSyncStore, type SyncStatus } from '../store/useSyncStore'
 import { useCloudSync } from '../lib/useCloudSync'
@@ -12,6 +12,7 @@ import type { TranslationKey } from '../i18n/en'
 
 export function AppLayout() {
   const load = useLedgerStore((s) => s.load)
+  const t = useT()
   const language = useLanguage()
   const error = useLedgerStore((s) => s.error)
   const [theme, setTheme] = useState<Theme>(() => getInitialTheme())
@@ -57,7 +58,7 @@ export function AppLayout() {
           role="alert"
           className="mx-4 mt-4 rounded-xl bg-[var(--negative-tint)] text-[var(--negative)] px-4 py-3 text-sm"
         >
-          {error}
+          {error === SYNC_FAILED ? t('syncFailed') : error}
         </div>
       ) : null}
       <Outlet />

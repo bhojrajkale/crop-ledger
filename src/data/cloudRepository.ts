@@ -142,8 +142,7 @@ function batchWriter(db: Firestore) {
  * listeners would add a class of ordering bugs for a collaboration case that
  * does not exist yet.
  */
-export function cloudRepository(
-  uid: string,
+export interface CloudRepositoryOptions {
   /**
    * The Firestore instance to use. Defaults to the app's own. Injectable so
    * this implementation can be exercised against the local emulator, where
@@ -151,8 +150,40 @@ export function cloudRepository(
    * IndexedDB cache, which does not exist under Node.
    */
   firestore?: Firestore
+  /**
+   * Called when a write is eventually rejected by the server. Because writes
+   * resolve locally (see `queued` below), a genuine failure — a permission
+   * change, a malformed document — surfaces long after the tap that caused
+   * it, and would otherwise be swallowed entirely.
+   */
+  onWriteError?: (error: unknown) => void
+}
+
+export function cloudRepository(
+  uid: string,
+  { firestore, onWriteError }: CloudRepositoryOptions = {}
 ): CropRepository {
   const db = firestore ?? getFirebase().db
+
+  /**
+   * Treats a write as done once Firestore has it locally.
+   *
+   * Firestore's write promises resolve on **server acknowledgement**, so with
+   * no signal they simply never settle. The store awaits every write before
+   * it updates the screen, which meant that recording a payment — or adding
+   * an expense, or anyone — in a field with no bars appeared to do nothing at
+   * all. That is the opposite of offline-first, and it is what this app is
+   * for.
+   *
+   * Resolving early is safe because the write is already applied to
+   * Firestore's own IndexedDB cache by the time the call returns, and the SDK
+   * retries until the server has it. The local cache is real storage, not a
+   * guess — so the screen is telling the truth, just ahead of the server.
+   */
+  const queued = (write: Promise<unknown>): Promise<void> => {
+    write.catch((error) => onWriteError?.(error))
+    return Promise.resolve()
+  }
 
   const root = `users/${uid}`
   const crops = () => collection(db, `${root}/crops`)
@@ -175,7 +206,7 @@ export function cloudRepository(
     },
 
     async saveCrop(crop) {
-      await setDoc(doc(crops(), crop.id), clean(crop))
+      await queued(setDoc(doc(crops(), crop.id), clean(crop)))
     },
 
     async deleteCrop(cropId) {
@@ -198,7 +229,7 @@ export function cloudRepository(
       for (const d of owned.docs) batch.delete(d.ref)
       for (const d of cropSales.docs) batch.delete(d.ref)
       batch.delete(doc(crops(), cropId))
-      await batch.commit()
+      await queued(batch.commit())
     },
 
     async listExpenses(cropId) {
@@ -209,7 +240,7 @@ export function cloudRepository(
     },
 
     async saveExpense(expense) {
-      await setDoc(doc(expenses(), expense.id), clean(expense))
+      await queued(setDoc(doc(expenses(), expense.id), clean(expense)))
     },
 
     async deleteExpense(expenseId) {
@@ -217,7 +248,7 @@ export function cloudRepository(
       const batch = batchWriter(db)
       for (const id of ids) batch.delete(doc(receipts(expenseId), id))
       batch.delete(doc(expenses(), expenseId))
-      await batch.commit()
+      await queued(batch.commit())
     },
 
     async listReceipts(expenseId) {
@@ -236,14 +267,16 @@ export function cloudRepository(
         receipt.image,
         receipt.mimeType
       )
-      await setDoc(
-        doc(receipts(receipt.expenseId), receipt.id),
-        toStored(receipt, bytes, mimeType)
+      await queued(
+        setDoc(
+          doc(receipts(receipt.expenseId), receipt.id),
+          toStored(receipt, bytes, mimeType)
+        )
       )
     },
 
     async deleteReceipt(receiptId, expenseId) {
-      await deleteDoc(doc(receipts(expenseId), receiptId))
+      await queued(deleteDoc(doc(receipts(expenseId), receiptId)))
     },
 
     /**
@@ -292,11 +325,11 @@ export function cloudRepository(
     },
 
     async saveSale(sale) {
-      await setDoc(doc(sales(), sale.id), clean(sale))
+      await queued(setDoc(doc(sales(), sale.id), clean(sale)))
     },
 
     async deleteSale(saleId) {
-      await deleteDoc(doc(sales(), saleId))
+      await queued(deleteDoc(doc(sales(), saleId)))
     },
 
     async exportAll() {

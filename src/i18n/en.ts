@@ -286,6 +286,8 @@ export const en = {
   cloudPhotosFailed: '{photos} could not be uploaded.',
   cloudLocalCopyKept:
     "Your account already had a ledger, so that is what you are seeing. This phone's own copy has been left untouched — restore a backup file if you meant to use it instead.",
+  syncFailed:
+    'Some changes could not be saved to your account. They are safe on this phone — check your connection, or sign out and back in.',
   cloudStatusLabel: 'Cloud backup status',
   dismiss: 'Dismiss',
 

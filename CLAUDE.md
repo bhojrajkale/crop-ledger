@@ -235,6 +235,20 @@ through the `useCloudSync()` hook mounted in `AppLayout`. Rules for this seam:
 - **Receipt bytes cross the wire as Firestore `Bytes`,** and `fromStored()`
   copies the view (`.slice()`) rather than handing over `.buffer`, which can
   be a window onto a larger allocation.
+- **Cloud writes resolve locally, never on server acknowledgement.** Firestore's
+  `setDoc`/`deleteDoc`/`batch.commit()` promises only settle once the *server*
+  has the write — with no signal they never settle at all. The store awaits
+  every write before updating the screen, so this made recording a payment (or
+  adding anything) in a field with no bars appear to do nothing. Every write in
+  `cloudRepository` therefore goes through `queued()`, which returns as soon as
+  Firestore has applied it to its own IndexedDB cache — real, durable storage
+  that the SDK retries from until the server has it. A later server rejection
+  is reported through `onWriteError` → `reportSyncFailure()`, because by then
+  nothing on screen is waiting for it. **Do not "fix" this by awaiting the SDK
+  promise.** `offlineWrite.emu.test.ts` proves the hang, against a real
+  emulator with the network disabled. The one deliberate exception is
+  `replaceAll` (restoring a backup), which still waits for the server so it can
+  report how many photos actually failed.
 - **Opening a crop is a two-phase read.** `getDocs` waits on the server even
   when the same rows are cached locally, which is what made opening a crop
   pause. `cachedCropData()` — optional on the interface, implemented only by

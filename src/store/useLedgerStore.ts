@@ -12,6 +12,13 @@ export type ImportResult =
 /** Where the ledger currently being shown is stored. */
 export type StorageKind = 'local' | 'cloud'
 
+/**
+ * Sentinel rather than a sentence: the store has no business knowing the
+ * app's language, and every other value of `error` is already a raw message
+ * from a thrown exception. AppLayout translates this one before showing it.
+ */
+export const SYNC_FAILED = '@syncFailed'
+
 interface LedgerState {
   crops: Crop[]
   /** Expenses for the crop currently open. Not every crop's, ever. */
@@ -43,6 +50,13 @@ interface LedgerState {
    * to storage directly.
    */
   setRepository: (next: CropRepository, storage: StorageKind) => Promise<void>
+  /**
+   * A write the device accepted but the server later refused. Reported out of
+   * band because cloud writes resolve locally — by the time this arrives the
+   * screen has long since moved on, and saying nothing would leave this
+   * device and the account quietly disagreeing.
+   */
+  reportSyncFailure: () => void
 
   saveCrop: (crop: Crop) => Promise<void>
   deleteCrop: (cropId: string) => Promise<void>
@@ -109,6 +123,10 @@ export const useLedgerStore = create<LedgerState>((set, get) => ({
     await get().load()
     const cropId = get().loadedCropId
     if (cropId) await get().openCrop(cropId)
+  },
+
+  reportSyncFailure() {
+    set({ error: SYNC_FAILED })
   },
 
   async load() {

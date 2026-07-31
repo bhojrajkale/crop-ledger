@@ -71,7 +71,7 @@ const receipt = (id: string, expenseId: string): Receipt => ({
 beforeEach(async () => {
   await env.clearFirestore()
   db = env.authenticatedContext(UID).firestore() as unknown as Firestore
-  repo = cloudRepository(UID, db)
+  repo = cloudRepository(UID, { firestore: db })
 })
 
 afterAll(async () => {

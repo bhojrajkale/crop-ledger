@@ -58,7 +58,14 @@ export const useSyncStore = create<SyncState>((set) => ({
         import('../data/cloudRepository'),
         import('../data/cloudSync'),
       ])
-      const cloud = cloudRepository(uid)
+      const cloud = cloudRepository(uid, {
+        // Writes resolve as soon as they are safe on the device, so a genuine
+        // server rejection lands here — long after the tap, with nothing on
+        // screen still waiting for it. Surfacing it late is far better than
+        // not at all: the user's copy and the account's would otherwise
+        // disagree silently.
+        onWriteError: () => useLedgerStore.getState().reportSyncFailure(),
+      })
 
       set({ status: 'uploading' })
       const result = await uploadLocalLedger(dexieRepository, cloud)
