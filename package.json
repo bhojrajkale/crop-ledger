@@ -13,7 +13,7 @@
     "test:cloud": "npx -y firebase-tools emulators:exec --project demo-crop-ledger 'vitest run --config vitest.cloud.config.ts'",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "test:all": "npm run lint && npm run test && npm run build && npm run test:e2e"
+    "test:all": "npm run lint && npm run test && npm run test:cloud && npm run build && npm run test:e2e"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",

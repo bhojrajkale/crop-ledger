@@ -7,10 +7,11 @@ Guidance for Claude Code (claude.ai/code) when working in this repository.
 ```bash
 npm run dev       # dev server at localhost:5173/crop-ledger/
 npm run build     # tsc -b && vite build && copy 404.html (what CI runs)
-npm run test      # vitest — domain, data and store logic
-npm run test:e2e  # playwright — the real app in a browser
-npm run test:all  # lint + unit + build + e2e, i.e. everything CI runs
-npm run lint      # oxlint
+npm run test       # vitest — domain, data and store logic
+npm run test:cloud # vitest against a real Firestore emulator (needs a JDK)
+npm run test:e2e   # playwright — the real app in a browser
+npm run test:all   # lint + unit + cloud + build + e2e, i.e. everything CI runs
+npm run lint       # oxlint
 ```
 
 **Run `npm run test:e2e` before pushing anything that touches a screen.** The
@@ -262,7 +263,9 @@ through the `useCloudSync()` hook mounted in `AppLayout`. Rules for this seam:
   is reported through `onWriteError` → `reportSyncFailure()`, because by then
   nothing on screen is waiting for it. **Do not "fix" this by awaiting the SDK
   promise.** `offlineWrite.emu.test.ts` proves the hang, against a real
-  emulator with the network disabled. The one deliberate exception is
+  emulator with the network disabled, and CI's `cloud` job runs it on every
+  push — reverting to an awaited SDK promise goes red. The one deliberate
+  exception is
   `replaceAll` (restoring a backup), which still waits for the server so it can
   report how many photos actually failed.
 - **A save updates the list in memory; it does not re-read.** `getDocs` always

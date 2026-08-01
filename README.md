@@ -58,11 +58,13 @@ one.
 ## Commands
 
 ```bash
-npm run dev       # dev server
-npm run build     # tsc -b && vite build (what CI runs)
-npm run test      # vitest
-npm run lint      # oxlint
-npm run preview   # preview the production build
+npm run dev        # dev server
+npm run build      # tsc -b && vite build (what CI runs)
+npm run test       # vitest
+npm run test:cloud # vitest against a real Firestore emulator (needs a JDK)
+npm run test:e2e   # playwright, against the app in a browser
+npm run lint       # oxlint
+npm run preview    # preview the production build
 ```
 
 `npm run build` typechecks before bundling, so a type error fails the build.
