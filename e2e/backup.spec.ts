@@ -87,3 +87,30 @@ test.describe('exports, backup and language', () => {
     await expect(page.getByText(/^v\d+\.\d+\.\d+/)).toBeVisible()
   })
 })
+
+test.describe('offline', () => {
+  test('says an entry is saved here and will sync, without a signal', async ({
+    page,
+    context,
+  }) => {
+    // Without an account there is no server to sync to, so the app must not
+    // promise one. This build has no Firebase configured, which is exactly
+    // that case: entering an expense offline still works and says nothing
+    // about syncing.
+    const app = new App(page)
+    await app.open()
+    await app.createCrop('Cotton', 'Kharif 2026')
+    await app.openCrop('Cotton')
+    await app.addPeople('Bhojraj')
+
+    await context.setOffline(true)
+    await app.addExpense({ amount: '1500', notes: 'diesel' })
+
+    await expect(app.expenseRow('diesel')).toContainText('₹1,500')
+    await app.doesNotShow('will go to your account')
+
+    await context.setOffline(false)
+    await page.reload()
+    await expect(app.expenseRow('diesel')).toContainText('₹1,500')
+  })
+})

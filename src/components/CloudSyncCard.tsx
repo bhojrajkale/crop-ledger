@@ -3,6 +3,7 @@ import { Button } from './ui/Button'
 import { Card, SectionTitle } from './ui/Card'
 import { useAuthStore } from '../store/useAuthStore'
 import { useSyncStore, type SyncStatus } from '../store/useSyncStore'
+import { useOnline } from '../lib/useOnline'
 import { useT } from '../i18n'
 import type { TranslationKey } from '../i18n/en'
 
@@ -35,6 +36,7 @@ export function CloudSyncCard() {
   const uploaded = useSyncStore((s) => s.uploaded)
   const localCopyKept = useSyncStore((s) => s.localCopyKept)
   const dismissNotice = useSyncStore((s) => s.dismissNotice)
+  const online = useOnline()
 
   if (!available) return null
 
@@ -49,7 +51,11 @@ export function CloudSyncCard() {
       <SectionTitle>{t('cloudSync')}</SectionTitle>
       <Card className="mb-6">
         <p className="text-sm text-[var(--muted)] mb-3">
-          {signedIn ? t('cloudSyncOnBody') : t('cloudSyncOffBody')}
+          {signedIn
+            ? t('cloudSyncOnBody')
+            : online
+              ? t('cloudSyncOffBody')
+              : t('cloudSyncOffBodyOffline')}
         </p>
 
         {settled ? (
@@ -58,7 +64,12 @@ export function CloudSyncCard() {
             aria-label={t('cloudStatusLabel')}
             className="text-sm text-[var(--ink)] mb-3"
           >
-            {t(STATUS_TEXT[status])}
+            {/* With no signal the ledger is still being saved — it is the
+                account that is behind, which is a different thing from the
+                connection having failed. */}
+            {!online && status === 'ready'
+              ? t('offlineBanner')
+              : t(STATUS_TEXT[status])}
           </p>
         ) : null}
 

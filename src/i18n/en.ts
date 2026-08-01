@@ -292,6 +292,11 @@ export const en = {
     "Your account already had a ledger, so that is what you are seeing. This phone's own copy has been left untouched — restore a backup file if you meant to use it instead.",
   syncFailed:
     'Some changes could not be saved to your account. They are safe on this phone — check your connection, or sign out and back in.',
+  offlineBanner:
+    'No connection — saved on this phone, and it will go to your account when the signal is back.',
+  cloudOfflineNow: 'Offline · saved on this phone',
+  cloudSyncOffBodyOffline:
+    'You are offline. What you enter is saved on this phone either way; signing in later puts it in your account too.',
   cloudStatusLabel: 'Cloud backup status',
   dismiss: 'Dismiss',
 

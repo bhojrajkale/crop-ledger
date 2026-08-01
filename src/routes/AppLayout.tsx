@@ -4,6 +4,7 @@ import { SYNC_FAILED, useLedgerStore } from '../store/useLedgerStore'
 import { useAuthStore } from '../store/useAuthStore'
 import { useSyncStore, type SyncStatus } from '../store/useSyncStore'
 import { useCloudSync } from '../lib/useCloudSync'
+import { useOnline } from '../lib/useOnline'
 import { applyTheme, getInitialTheme, type Theme } from '../lib/theme'
 import { UpdatePrompt } from '../components/UpdatePrompt'
 import { useBackupExport, type ExportOutcome } from '../lib/useBackupExport'
@@ -15,6 +16,8 @@ export function AppLayout() {
   const t = useT()
   const language = useLanguage()
   const error = useLedgerStore((s) => s.error)
+  const online = useOnline()
+  const storage = useLedgerStore((s) => s.storage)
   const [theme, setTheme] = useState<Theme>(() => getInitialTheme())
   const [notice, setNotice] = useState<ExportOutcome>(null)
 
@@ -59,6 +62,19 @@ export function AppLayout() {
           className="mx-4 mt-4 rounded-xl bg-[var(--negative-tint)] text-[var(--negative)] px-4 py-3 text-sm"
         >
           {error === SYNC_FAILED ? t('syncFailed') : error}
+        </div>
+      ) : null}
+
+      {/* Only when signed in: with no account there is no server to sync to,
+          and promising one would be a lie. Entering expenses with no signal
+          is the ordinary case here, so this says what happened to the entry
+          rather than warning about a failure that has not occurred. */}
+      {!online && storage === 'cloud' ? (
+        <div
+          role="status"
+          className="mx-4 mt-4 rounded-xl bg-[var(--warning-tint)] text-[var(--warning)] px-4 py-3 text-sm"
+        >
+          {t('offlineBanner')}
         </div>
       ) : null}
       <Outlet />
@@ -111,22 +127,29 @@ function CloudIndicator() {
   const available = useAuthStore((s) => s.available)
   const settled = useAuthStore((s) => s.account) !== undefined
   const status = useSyncStore((s) => s.status)
+  const online = useOnline()
 
   // Nothing to say on a build with no project configured, and nothing honest
   // to say before the session check has finished.
   if (!available || !settled) return null
 
+  // Signed in with no signal is its own state: everything is working, the
+  // account is simply behind. Showing the same ☁️ as a synced ledger would
+  // overstate it.
+  const offlineNow = !online && status === 'ready'
+  const label = offlineNow ? t('cloudOfflineNow') : t(CLOUD_STATUS_TEXT[status])
+
   return (
     <Link
       to="/settings"
-      aria-label={t(CLOUD_STATUS_TEXT[status])}
-      title={t(CLOUD_STATUS_TEXT[status])}
+      aria-label={label}
+      title={label}
       className="size-9 rounded-full bg-[var(--surface)] border border-[var(--hairline)] text-base flex items-center justify-center active:scale-95 transition-transform"
       // Signed out, the icon is a prompt rather than a state — dimmed so it
       // does not read as "backed up".
       style={status === 'offline' ? { opacity: 0.45 } : undefined}
     >
-      {CLOUD_ICON[status]}
+      {offlineNow ? '📴' : CLOUD_ICON[status]}
     </Link>
   )
 }
