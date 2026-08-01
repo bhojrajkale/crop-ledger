@@ -299,7 +299,7 @@ function ExpenseRow({
           : t('nPartPayments', { count: payers.length })
 
   return (
-    <Card className="flex items-start gap-3">
+    <Card className="flex items-start gap-3" data-testid="expense-row">
       <span
         aria-hidden="true"
         className="shrink-0 inline-flex items-center justify-center size-10 rounded-xl text-lg"

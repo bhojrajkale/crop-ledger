@@ -1,0 +1,89 @@
+import { expect, test } from '@playwright/test'
+import { readFileSync } from 'node:fs'
+import { App } from './app'
+
+test.describe('exports, backup and language', () => {
+  let app: App
+
+  test.beforeEach(async ({ page }) => {
+    app = new App(page)
+    await app.open()
+    await app.createCrop('Cotton', 'Kharif 2026')
+    await app.openCrop('Cotton')
+    await app.addPeople('Bhojraj', 'Ganesh')
+    await app.addExpense({ amount: '8000', notes: 'seed', paidBy: 'Bhojraj' })
+  })
+
+  test('downloads a spreadsheet of the season', async ({ page }) => {
+    await app.goToTab('Summary')
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: 'Download spreadsheet' }).click(),
+    ])
+
+    const csv = readFileSync(await download.path(), 'utf8')
+    // The byte-order mark, without which Excel mangles Marathi names.
+    expect(csv.startsWith('﻿')).toBe(true)
+    // A bare decimal a spreadsheet can add up, not ₹8,000.
+    expect(csv).toContain('8000.00')
+    expect(csv).toContain('Who owes whom')
+    expect(csv).toContain('Ganesh,Bhojraj,4000.00')
+  })
+
+  test('backs the ledger up and restores it after a wipe', async ({ page }) => {
+    await page.goto('./settings')
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: 'Download backup' }).click(),
+    ])
+    const file = await download.path()
+
+    // Lose everything, the way clearing site data would.
+    await page.evaluate(async () => {
+      for (const db of await indexedDB.databases()) {
+        if (db.name) indexedDB.deleteDatabase(db.name)
+      }
+    })
+    await page.goto('./')
+    await expect(page.getByText('No crops yet')).toBeVisible()
+
+    await page.goto('./settings')
+    await page.getByRole('button', { name: 'Choose backup file' }).click()
+    await page.locator('input[type=file]').setInputFiles(file)
+    await expect(page.getByText(/Restored/)).toBeVisible()
+
+    await page.goto('./')
+    await expect(app.cropRows).toHaveCount(1)
+    await app.openCrop('Cotton')
+    await expect(app.expenseRow('seed')).toContainText('₹8,000')
+  })
+
+  test('switches to Marathi and back', async ({ page }) => {
+    await page.goto('./settings')
+    await page.getByText('मराठी', { exact: true }).click()
+    await expect(page.getByText('बॅकअप व पुनर्संचयन')).toBeVisible()
+
+    await page.goto('./')
+    // The crop list, in Marathi, still showing the same crop.
+    await expect(page.getByText('सुरू असलेली पिके')).toBeVisible()
+    await expect(app.cropRows.first()).toContainText('Cotton')
+
+    await page.goto('./settings')
+    await page.getByText('English', { exact: true }).click()
+    await expect(page.getByText('Backup & restore')).toBeVisible()
+  })
+
+  test('remembers the language across a reload', async ({ page }) => {
+    await page.goto('./settings')
+    await page.getByText('मराठी', { exact: true }).click()
+    await page.reload()
+    await expect(page.getByText('बॅकअप व पुनर्संचयन')).toBeVisible()
+  })
+
+  test('reports the build version', async ({ page }) => {
+    await page.goto('./settings')
+    // The stamp that tells a stale cached app from a current one.
+    await expect(page.getByText('Version', { exact: true })).toBeVisible()
+    await expect(page.getByText(/^v\d+\.\d+\.\d+/)).toBeVisible()
+  })
+})

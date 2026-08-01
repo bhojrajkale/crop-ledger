@@ -108,7 +108,7 @@ export function HarvestPage() {
         <ul className="space-y-2">
           {sales.map((sale) => (
             <li key={sale.id}>
-              <Card>
+              <Card data-testid="sale-row">
                 <div className="flex items-baseline justify-between gap-3">
                   <p className="font-medium text-[var(--ink)] truncate">
                     {sale.quantity} {sale.unit}

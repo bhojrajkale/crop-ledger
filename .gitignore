@@ -8,3 +8,7 @@ dev-dist
 
 # Firestore emulator (npm run test:cloud)
 firestore-debug.log
+
+# Playwright
+test-results
+playwright-report

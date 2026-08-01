@@ -7,9 +7,25 @@ Guidance for Claude Code (claude.ai/code) when working in this repository.
 ```bash
 npm run dev       # dev server at localhost:5173/crop-ledger/
 npm run build     # tsc -b && vite build && copy 404.html (what CI runs)
-npm run test      # vitest
+npm run test      # vitest — domain, data and store logic
+npm run test:e2e  # playwright — the real app in a browser
+npm run test:all  # lint + unit + build + e2e, i.e. everything CI runs
 npm run lint      # oxlint
 ```
+
+**Run `npm run test:e2e` before pushing anything that touches a screen.** The
+unit suite cannot see a broken one: every regression that reached a phone —
+a form id that outlived one expense and overwrote the previous one, a Record
+payment button missing from the list where it was needed, a tab claiming "no
+expenses" while it loaded, a save that hung with no signal — typechecked and
+passed every unit test. `e2e/` covers the flows those broke.
+
+`e2e/app.ts` is the page object; specs speak in its terms so a layout change
+breaks one method rather than thirty assertions. Rows carry `data-testid`
+(`crop-row`, `expense-row`, `sale-row`, `person-row`, `transfer-row`) — keep
+them when reworking a list. Assert with Playwright's retrying matchers
+(`app.shows(...)`, `expect(locator)`), never a one-shot `innerText` snapshot:
+read straight after a navigation, that captures the screen you just left.
 
 `npm run build` runs `tsc -b` first, so a type error fails the build. Always
 run it before pushing.

@@ -109,6 +109,7 @@ function CropRow({ crop }: { crop: Crop }) {
   return (
     <Link
       to={`/crop/${crop.id}`}
+      data-testid="crop-row"
       className="block rounded-2xl bg-[var(--surface)] border border-[var(--hairline)] p-4 active:scale-[0.99] transition-transform"
     >
       <div className="flex items-baseline justify-between gap-3">

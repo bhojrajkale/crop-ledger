@@ -205,9 +205,8 @@ export const en = {
   takePhoto: '📷 Take photo',
   choosePhoto: '🖼️ Choose photo',
   adding: 'Adding…',
-  photosHint: 'Photos are shrunk before saving and stay on this device.',
-  photosStored:
-    '{photos} · {size} after shrinking. Stored on this device only.',
+  photosHint: 'Photos are shrunk before saving.',
+  photosStored: '{photos} · {size} after shrinking.',
   photos: '{count} photos',
   photos_one: '{count} photo',
   notImages: '{count} file(s) were not images',

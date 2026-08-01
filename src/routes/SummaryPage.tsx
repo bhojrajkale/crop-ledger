@@ -306,7 +306,7 @@ export function SummaryPage() {
             <ul className="space-y-2">
               {transfers.map((transfer) => (
                 <li key={`${transfer.from}-${transfer.to}`}>
-                  <Card className="flex items-center gap-3">
+                  <Card className="flex items-center gap-3" data-testid="transfer-row">
                     <Avatar initials={initials(memberName(transfer.from))} />
                     <div className="flex-1 min-w-0 text-sm">
                       <span className="font-medium text-[var(--ink)]">
@@ -345,7 +345,7 @@ export function SummaryPage() {
             const owes = totals.owedByMember.get(member.id) ?? 0
             return (
               <li key={member.id}>
-                <Card>
+                <Card data-testid="person-row">
                   <div className="flex items-center gap-3">
                     <Avatar initials={initials(member.name)} />
                     <p className="flex-1 min-w-0 font-medium text-[var(--ink)] truncate">

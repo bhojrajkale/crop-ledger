@@ -85,9 +85,14 @@ interface LedgerState {
 
   listReceipts: (expenseId: string) => Promise<Receipt[]>
   /**
-   * Applies the receipt changes made in the expense form, then stamps the
-   * resulting count onto the expense so lists can show a badge without
-   * touching image data.
+   * Applies the receipt changes made in the expense form.
+   *
+   * The count is not re-derived here. It used to be read back from storage
+   * and stamped onto the expense in a second write — which on the cloud meant
+   * a server round trip and an extra save on every expense that carried a
+   * photo, the remaining cause of a slow "Saving…". The form already knows
+   * how many photos it is holding and stamps `receiptCount` before saving, so
+   * the read told us something we had just written.
    */
   syncReceipts: (
     expense: Expense,
@@ -306,12 +311,6 @@ export const useLedgerStore = create<LedgerState>((set, get) => ({
   async syncReceipts(expense, added, removedIds) {
     for (const id of removedIds) await repo.deleteReceipt(id, expense.id)
     for (const receipt of added) await repo.saveReceipt(receipt)
-
-    const count = (await repo.listReceipts(expense.id)).length
-    const current = get().expenses.find((e) => e.id === expense.id) ?? expense
-    const updated: Expense = { ...current, receiptCount: count }
-    if (count === 0) delete updated.receiptCount
-    await get().saveExpense(updated)
   },
 
   async exportBackup() {
