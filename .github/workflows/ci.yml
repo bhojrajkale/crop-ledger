@@ -19,6 +19,42 @@ jobs:
       - run: npm run test
       - run: npm run build
 
+  # The emulator suite runs cloudRepository and firestore.rules against a real
+  # Firestore rather than a stand-in. It is the only thing here that can catch
+  # a write that never resolves with no signal — the failure that made adding
+  # an expense in a field appear to do nothing — because that bug lives in the
+  # SDK's promise semantics, which a fake reproduces only by accident.
+  #
+  # Its own job: the emulator needs a JDK and a download the other jobs have no
+  # use for, and a red cloud suite should be readable without scrolling past
+  # the unit run.
+  cloud:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      # The Firestore emulator is a Java process. Pinned rather than relying on
+      # whatever JDK the runner image happens to ship, since that has been
+      # trimmed before and the failure would look like a broken test.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      # The emulator jar is ~130 MB and identical between runs; fetching it
+      # every time is most of this job's wall clock. The key carries no
+      # version because the jar's is chosen by firebase-tools and is not
+      # knowable here — when it bumps, this restores a stale cache, downloads
+      # the new jar anyway and the job is merely slow. Bump the key to fix it.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/firebase/emulators
+          key: firebase-emulators-${{ runner.os }}
+      - run: npm ci
+      - run: npm run test:cloud
+
   # The end-to-end suite drives the real app in a browser. It is the only
   # thing here that catches a broken screen — a form that overwrites the last
   # expense, a button missing from where it is needed, a list claiming to be
