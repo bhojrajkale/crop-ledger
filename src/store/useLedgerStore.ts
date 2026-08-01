@@ -3,6 +3,11 @@ import type { Crop, Expense, Member, Payment, Receipt, Sale } from '../domain/ty
 import { dexieRepository, type CropRepository } from '../data/repository'
 import { buildBackup, parseBackup, type ParseResult } from '../data/backup'
 import { applyPayment, removePayment } from '../domain/payments'
+import {
+  byNewestFirst,
+  byStartDateDesc,
+  upsertSorted,
+} from '../domain/order'
 
 /** A parse result plus how many photos storage refused. */
 export type ImportResult =
@@ -174,7 +179,10 @@ export const useLedgerStore = create<LedgerState>((set, get) => ({
     // lie the user only discovers after a reload.
     try {
       await repo.saveCrop(crop)
-      set({ crops: await repo.listCrops(), error: null })
+      set({
+        crops: upsertSorted(get().crops, crop, byStartDateDesc),
+        error: null,
+      })
     } catch (e) {
       set({ error: message(e) })
       throw e
@@ -184,7 +192,7 @@ export const useLedgerStore = create<LedgerState>((set, get) => ({
   async deleteCrop(cropId) {
     try {
       await repo.deleteCrop(cropId)
-      const crops = await repo.listCrops()
+      const crops = get().crops.filter((c) => c.id !== cropId)
       set(
         get().loadedCropId === cropId
           ? { crops, expenses: [], sales: [], loadedCropId: null, error: null }
@@ -213,8 +221,17 @@ export const useLedgerStore = create<LedgerState>((set, get) => ({
   async saveExpense(expense) {
     try {
       await repo.saveExpense(expense)
+      // Updated from the row just written rather than by re-reading the
+      // collection. The re-read was a round trip to the server, and the first
+      // one after opening the app also paid for Firestore's connection
+      // handshake — which is exactly the pause felt on the first save of a
+      // sitting. Nothing is lost: the row is already known, and the shared
+      // comparator puts it where a fresh read would have.
       if (get().loadedCropId === expense.cropId) {
-        set({ expenses: await repo.listExpenses(expense.cropId), error: null })
+        set({
+          expenses: upsertSorted(get().expenses, expense, byNewestFirst),
+          error: null,
+        })
       }
     } catch (e) {
       set({ error: message(e) })
@@ -226,7 +243,12 @@ export const useLedgerStore = create<LedgerState>((set, get) => ({
     const cropId = get().loadedCropId
     try {
       await repo.deleteExpense(expenseId)
-      if (cropId) set({ expenses: await repo.listExpenses(cropId), error: null })
+      if (cropId) {
+        set({
+          expenses: get().expenses.filter((e) => e.id !== expenseId),
+          error: null,
+        })
+      }
     } catch (e) {
       set({ error: message(e) })
       throw e
@@ -237,7 +259,10 @@ export const useLedgerStore = create<LedgerState>((set, get) => ({
     try {
       await repo.saveSale(sale)
       if (get().loadedCropId === sale.cropId) {
-        set({ sales: await repo.listSales(sale.cropId), error: null })
+        set({
+          sales: upsertSorted(get().sales, sale, byNewestFirst),
+          error: null,
+        })
       }
     } catch (e) {
       set({ error: message(e) })
@@ -249,7 +274,9 @@ export const useLedgerStore = create<LedgerState>((set, get) => ({
     const cropId = get().loadedCropId
     try {
       await repo.deleteSale(saleId)
-      if (cropId) set({ sales: await repo.listSales(cropId), error: null })
+      if (cropId) {
+        set({ sales: get().sales.filter((s) => s.id !== saleId), error: null })
+      }
     } catch (e) {
       set({ error: message(e) })
       throw e

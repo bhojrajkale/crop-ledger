@@ -1,4 +1,5 @@
 import type { Crop, Expense, Receipt, Sale } from '../domain/types'
+import { byNewestFirst, byStartDateDesc } from '../domain/order'
 import { receiptBytes } from '../lib/image'
 import { db } from './db'
 
@@ -73,7 +74,7 @@ export interface BackupPayload {
 export const dexieRepository: CropRepository = {
   async listCrops() {
     const crops = await db.crops.toArray()
-    return crops.sort((a, b) => b.startDate.localeCompare(a.startDate))
+    return crops.sort(byStartDateDesc)
   },
 
   async saveCrop(crop) {
@@ -105,10 +106,7 @@ export const dexieRepository: CropRepository = {
 
   async listExpenses(cropId) {
     const expenses = await db.expenses.where('cropId').equals(cropId).toArray()
-    return expenses.sort(
-      (a, b) =>
-        b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt)
-    )
+    return expenses.sort(byNewestFirst)
   },
 
   async saveExpense(expense) {
@@ -148,10 +146,7 @@ export const dexieRepository: CropRepository = {
     const sales = await db.sales.where('cropId').equals(cropId).toArray()
     // Newest first: the harvest tab is read as a record of what has been sold
     // so far, and the most recent sale is the one being checked.
-    return sales.sort(
-      (a, b) =>
-        b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt)
-    )
+    return sales.sort(byNewestFirst)
   },
 
   async saveSale(sale) {

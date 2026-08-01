@@ -249,6 +249,15 @@ through the `useCloudSync()` hook mounted in `AppLayout`. Rules for this seam:
   emulator with the network disabled. The one deliberate exception is
   `replaceAll` (restoring a backup), which still waits for the server so it can
   report how many photos actually failed.
+- **A save updates the list in memory; it does not re-read.** `getDocs` always
+  goes to the server and waits, even for rows already cached, so the old
+  "write then re-read the collection" pattern put a network round trip on
+  every save — and the first one of a sitting also paid for Firestore's
+  connection handshake, which is the pause that got reported. The store now
+  applies the row it just wrote via `upsertSorted`. That is only safe because
+  `domain/order.ts` holds the comparators and **both repositories sort with
+  them too**: if the in-memory order diverged from a read's, the list would
+  reshuffle on the next load. Keep those three in step.
 - **Opening a crop is a two-phase read.** `getDocs` waits on the server even
   when the same rows are cached locally, which is what made opening a crop
   pause. `cachedCropData()` — optional on the interface, implemented only by

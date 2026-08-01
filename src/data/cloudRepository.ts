@@ -16,6 +16,7 @@ import {
   type WriteBatch,
 } from 'firebase/firestore'
 import type { Crop, Expense, Receipt, Sale } from '../domain/types'
+import { byNewestFirst, byStartDateDesc } from '../domain/order'
 import { receiptBytes } from '../lib/image'
 import { getFirebase } from './firebase'
 import type { CropRepository } from './repository'
@@ -40,15 +41,6 @@ import type { CropRepository } from './repository'
 
 /** Firestore's per-batch write limit. */
 const BATCH_LIMIT = 500
-
-/**
- * Newest first, by the date on the entry and then by when it was recorded.
- * Shared by expenses and sales, and by the cached and server-backed reads of
- * both — if the two orders differed, the list would visibly reshuffle the
- * moment the fresh copy arrived.
- */
-const byNewest = <T extends { date: string; createdAt: string }>(a: T, b: T) =>
-  b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt)
 
 /**
  * Strips `undefined` fields. Firestore rejects them outright, and the domain
@@ -137,10 +129,14 @@ function batchWriter(db: Firestore) {
  * Cloud-backed storage for one signed-in account.
  *
  * Note what this does *not* do: subscribe to live updates. There is a single
- * user, on one device at a time, and reads are served from Firestore's local
- * cache, so a re-read after each write is both instant and correct. Live
- * listeners would add a class of ordering bugs for a collaboration case that
- * does not exist yet.
+ * user, on one device at a time, so live listeners would add a class of
+ * ordering bugs for a collaboration case that does not exist yet.
+ *
+ * Every list read here goes to the server and waits for it — `getDocs` does
+ * not answer from the cache just because the cache has the rows. That is why
+ * the store updates its lists from the row it just wrote instead of re-reading
+ * after every save, and why `cachedCropData` exists for the one read that
+ * cannot be avoided.
  */
 export interface CloudRepositoryOptions {
   /**
@@ -202,7 +198,7 @@ export function cloudRepository(
   return {
     async listCrops() {
       const all = await readAll<Crop>(crops())
-      return all.sort((a, b) => b.startDate.localeCompare(a.startDate))
+      return all.sort(byStartDateDesc)
     },
 
     async saveCrop(crop) {
@@ -236,7 +232,7 @@ export function cloudRepository(
       const rows = (
         await getDocs(query(expenses(), where('cropId', '==', cropId)))
       ).docs.map((d) => d.data() as Expense)
-      return rows.sort(byNewest)
+      return rows.sort(byNewestFirst)
     },
 
     async saveExpense(expense) {
@@ -305,8 +301,8 @@ export function cloudRepository(
         return {
           // Same ordering as the server-backed reads, so the rows do not
           // visibly reshuffle when the fresh copy lands.
-          expenses: cachedExpenses.sort(byNewest),
-          sales: cachedSales.sort(byNewest),
+          expenses: cachedExpenses.sort(byNewestFirst),
+          sales: cachedSales.sort(byNewestFirst),
         }
       } catch {
         // No cache, or it could not be read. Not an error worth surfacing —
@@ -321,7 +317,7 @@ export function cloudRepository(
       ).docs.map((d) => d.data() as Sale)
       // Newest first: the harvest tab is read as a record of what has sold so
       // far, and the most recent sale is the one being checked.
-      return rows.sort(byNewest)
+      return rows.sort(byNewestFirst)
     },
 
     async saveSale(sale) {
