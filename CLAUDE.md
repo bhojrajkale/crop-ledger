@@ -295,6 +295,23 @@ existed. A migration must leave existing balances *identical* — an upgrade tha
 silently restates last season's books is worse than no upgrade, and
 `migrate.test.ts` asserts this.
 
+## Ids for not-yet-saved rows must be minted per opening, not per mount
+
+`ExpenseModal` needs an id before the expense exists, so its photos can be
+keyed to it. That id lived in `useState(() => newId())` — which runs once per
+*component instance*, and the add-modal is rendered permanently by
+`ExpensesPage` with only `open` toggling. Two expenses added without leaving
+the screen therefore shared an id, and the second **overwrote the first**.
+Silent data loss, and intermittent-looking, because navigating between tabs
+remounts the page and mints a fresh id.
+
+The id is now regenerated in the open effect (`if (!editExpense)
+setDraftId(newId())`), and staged receipts are re-stamped with the saved
+expense's real id. If another form ever needs a pre-save id, do the same:
+tie it to the opening, never to the mount. Everything else — `SaleModal`,
+`CropModal`, `RecordPaymentModal`, member add — calls `newId()` at submit and
+is safe by construction.
+
 ## Full-object writes
 
 `saveCrop`/`saveExpense` put the whole document. Always spread the existing

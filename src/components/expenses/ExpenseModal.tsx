@@ -67,8 +67,17 @@ export function ExpenseModal({
   const [addedIds, setAddedIds] = useState<string[]>([])
   const [removedIds, setRemovedIds] = useState<string[]>([])
   const [viewerIndex, setViewerIndex] = useState<number | null>(null)
-  // A new expense needs an id up front so its photos can be keyed to it.
-  const [draftId] = useState(() => newId())
+  /**
+   * A new expense needs an id up front so photos can be keyed to it before
+   * the row exists.
+   *
+   * Minted afresh every time the form opens, in the effect below — NOT once
+   * per mount. This modal stays mounted for the life of the expenses screen
+   * and only toggles `open`, so one id per mount meant two expenses added
+   * without leaving the screen shared an id, and the second silently
+   * overwrote the first.
+   */
+  const [draftId, setDraftId] = useState(() => newId())
 
   useEffect(() => {
     if (!open) return
@@ -117,6 +126,8 @@ export function ExpenseModal({
       setPayerMode('one')
       setPayerText({})
     }
+    // A fresh id per opening, so consecutive additions cannot collide.
+    if (!editExpense) setDraftId(newId())
     setError(undefined)
     setAddedIds([])
     setRemovedIds([])
@@ -303,7 +314,13 @@ export function ExpenseModal({
       if (splitMode !== 'custom') delete expense.splitAmounts
       if (!owedTo.trim()) delete expense.owedTo
 
-      const added = receipts.filter((r) => addedIds.includes(r.id))
+      // Re-stamped with the expense's real id rather than trusting the one
+      // they were captured under. Belt and braces after the draft id was
+      // found to outlive a single expense — a photo filed against the wrong
+      // expense would be attached to somebody else's bill.
+      const added = receipts
+        .filter((r) => addedIds.includes(r.id))
+        .map((r) => ({ ...r, expenseId: expense.id }))
       expense.receiptCount = receipts.length
       if (receipts.length === 0) delete expense.receiptCount
 
