@@ -30,6 +30,10 @@ there is one.
 - **Summary** — total spent, revenue, profit or loss, per-head share, what is
   still to pay and to whom, what each person paid versus their share, spend by
   category, and the shortest list of payments that settles everyone up.
+- **Settling up** — when one of those payments is actually made, record it and
+  it drops off the list. Part payments leave the remainder owing, and anything
+  recorded by mistake can be undone. Money members hand each other never
+  touches what is still owed to a shop.
 - **Cloud backup** — sign in with Google and the ledger, receipt photos
   included, is kept in your account instead of only on the phone. It opens on
   any device you sign in to, and survives losing or replacing the phone.

@@ -1,11 +1,12 @@
-import type { Crop, Expense, Receipt, Sale } from '../domain/types'
+import type { Crop, Expense, Receipt, Sale, Settlement } from '../domain/types'
 import type { BackupPayload } from './repository'
 import { migrateExpense } from './migrate'
 import { bytesToDataUrl, dataUrlToBytes } from '../lib/image'
 
-// v2 added receipt photos. Version 1 files still import — only a *newer*
-// version than we understand is refused.
-export const BACKUP_VERSION = 2
+// v2 added receipt photos, v3 settlements between members. Older files still
+// import — only a *newer* version than we understand is refused, and a missing
+// section simply reads as empty.
+export const BACKUP_VERSION = 3
 
 /** A receipt as it travels in JSON: the bytes become a base64 data URL. */
 interface SerialisedReceipt extends Omit<Receipt, 'image' | 'mimeType'> {
@@ -32,6 +33,7 @@ export async function buildBackup(payload: BackupPayload): Promise<BackupFile> {
     crops: payload.crops,
     expenses: payload.expenses,
     sales: payload.sales,
+    settlements: payload.settlements,
     receipts,
   }
 }
@@ -91,6 +93,23 @@ function isSerialisedReceipt(value: unknown): value is SerialisedReceipt {
   )
 }
 
+/**
+ * A settlement is only meaningful if it names both sides and an amount —
+ * a half-recorded one would silently shift a balance with nothing to show for
+ * it, which is worse than refusing the file.
+ */
+function isSettlement(value: unknown): value is Settlement {
+  return (
+    isObject(value) &&
+    isString(value.id) &&
+    isString(value.cropId) &&
+    isString(value.from) &&
+    isString(value.to) &&
+    typeof value.amount === 'number' &&
+    Number.isFinite(value.amount)
+  )
+}
+
 function isSale(value: unknown): value is Sale {
   return (
     isObject(value) &&
@@ -140,6 +159,16 @@ export async function parseBackup(text: string): Promise<ParseResult> {
   const crops = data.crops.filter(isCrop)
   const expenses = data.expenses.filter(isExpense)
   const sales = Array.isArray(data.sales) ? data.sales.filter(isSale) : []
+  // Absent in every backup written before settling up existed, which must
+  // still restore — an older file simply has none.
+  const rawSettlements = Array.isArray(data.settlements) ? data.settlements : []
+  const settlements = rawSettlements.filter(isSettlement)
+  if (settlements.length !== rawSettlements.length) {
+    return {
+      ok: false,
+      error: 'That backup contains damaged records, so it was not imported.',
+    }
+  }
 
   if (crops.length !== data.crops.length || expenses.length !== data.expenses.length) {
     return {
@@ -175,7 +204,13 @@ export async function parseBackup(text: string): Promise<ParseResult> {
     // Normalise on the way in, so a backup taken before credit tracking
     // existed restores as ordinary fully-paid expenses rather than landing
     // in the database in a shape the rest of the app no longer understands.
-    payload: { crops, expenses: expenses.map(migrateExpense), sales, receipts },
+    payload: {
+      crops,
+      expenses: expenses.map(migrateExpense),
+      sales,
+      settlements,
+      receipts,
+    },
     crops: crops.length,
     expenses: expenses.length,
     receipts: receipts.length,

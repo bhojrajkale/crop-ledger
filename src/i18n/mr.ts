@@ -264,6 +264,19 @@ export const mr: Record<keyof typeof en, string> = {
   undo: 'रद्द करा',
   undoPaymentLabel: '{amount} चा हप्ता रद्द करा',
 
+  // व्यक्तींमधील हिशोब पूर्ण करणे
+  markSettled: 'हिशोब पूर्ण झाला',
+  alreadySettled: 'पूर्ण झालेला हिशोब',
+  paidConnector: '→',
+  settleUpTitle: 'हिशोब पूर्ण करा',
+  settleUpSubtitle: '{from} → {to} · {amount} सुचवले',
+  amountHandedOver: 'दिलेली रक्कम',
+  settleAmountMissing: 'किती दिले ते भरा.',
+  settleNote: 'टीप (ऐच्छिक)',
+  settleNotePlaceholder: 'रोख, UPI…',
+  couldNotSaveSettlement: 'हा हिशोब जतन करता आला नाही.',
+  undoSettlementLabel: '{amount} चा हिशोब रद्द करा',
+
   // हिशेब कसा झाला
   howWorkedOut: 'हा हिशेब कसा झाला',
   explainBalance: 'कसे?',
@@ -271,6 +284,8 @@ export const mr: Record<keyof typeof en, string> = {
   breakdownExpenseShare: 'खर्चातील त्यांचा वाटा',
   breakdownRevenueShare: 'उत्पन्नातील त्यांचा वाटा',
   breakdownRevenueHeld: 'त्यांच्याकडे आलेले विक्रीचे पैसे',
+  breakdownSettlementsPaid: 'इतरांना दिलेले',
+  breakdownSettlementsReceived: 'इतरांकडून मिळालेले',
   breakdownGets: 'त्यांना मिळणार',
   breakdownOwes: 'त्यांनी द्यायचे',
   breakdownHoldingNote:

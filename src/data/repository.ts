@@ -1,4 +1,4 @@
-import type { Crop, Expense, Receipt, Sale } from '../domain/types'
+import type { Crop, Expense, Receipt, Sale, Settlement } from '../domain/types'
 import { byNewestFirst, byStartDateDesc } from '../domain/order'
 import { receiptBytes } from '../lib/image'
 import { db } from './db'
@@ -32,6 +32,10 @@ export interface CropRepository {
   saveSale(sale: Sale): Promise<void>
   deleteSale(saleId: string): Promise<void>
 
+  listSettlements(cropId: string): Promise<Settlement[]>
+  saveSettlement(settlement: Settlement): Promise<void>
+  deleteSettlement(settlementId: string): Promise<void>
+
   /**
    * Rows the device already holds for a crop, without touching the network.
    *
@@ -44,9 +48,11 @@ export interface CropRepository {
    * Returns null when there is nothing cached, which the caller must treat as
    * "keep waiting" rather than "this crop is empty".
    */
-  cachedCropData?(
-    cropId: string
-  ): Promise<{ expenses: Expense[]; sales: Sale[] } | null>
+  cachedCropData?(cropId: string): Promise<{
+    expenses: Expense[]
+    sales: Sale[]
+    settlements: Settlement[]
+  } | null>
 
   /** Photos for one expense. Only ever read when someone opens them. */
   listReceipts(expenseId: string): Promise<Receipt[]>
@@ -69,6 +75,7 @@ export interface BackupPayload {
   expenses: Expense[]
   sales: Sale[]
   receipts: Receipt[]
+  settlements: Settlement[]
 }
 
 export const dexieRepository: CropRepository = {
@@ -91,6 +98,7 @@ export const dexieRepository: CropRepository = {
       db.expenses,
       db.sales,
       db.receipts,
+      db.settlements,
       async () => {
         const expenseIds = await db.expenses
           .where('cropId')
@@ -99,6 +107,7 @@ export const dexieRepository: CropRepository = {
         await db.receipts.where('expenseId').anyOf(expenseIds).delete()
         await db.expenses.where('cropId').equals(cropId).delete()
         await db.sales.where('cropId').equals(cropId).delete()
+        await db.settlements.where('cropId').equals(cropId).delete()
         await db.crops.delete(cropId)
       }
     )
@@ -157,17 +166,35 @@ export const dexieRepository: CropRepository = {
     await db.sales.delete(saleId)
   },
 
+  async listSettlements(cropId) {
+    const settlements = await db.settlements
+      .where('cropId')
+      .equals(cropId)
+      .toArray()
+    return settlements.sort(byNewestFirst)
+  },
+
+  async saveSettlement(settlement) {
+    await db.settlements.put(settlement)
+  },
+
+  async deleteSettlement(settlementId) {
+    await db.settlements.delete(settlementId)
+  },
+
   async exportAll() {
-    const [crops, expenses, sales, receipts] = await Promise.all([
+    const [crops, expenses, sales, receipts, settlements] = await Promise.all([
       db.crops.toArray(),
       db.expenses.toArray(),
       db.sales.toArray(),
       db.receipts.toArray(),
+      db.settlements.toArray(),
     ])
     return {
       crops,
       expenses,
       sales,
+      settlements,
       receipts: await Promise.all(receipts.map(normalise)),
     }
   },
@@ -182,12 +209,25 @@ export const dexieRepository: CropRepository = {
    * else.
    */
   async replaceAll(payload) {
-    await db.transaction('rw', db.crops, db.expenses, db.sales, async () => {
-      await Promise.all([db.crops.clear(), db.expenses.clear(), db.sales.clear()])
-      await db.crops.bulkPut(payload.crops)
-      await db.expenses.bulkPut(payload.expenses)
-      await db.sales.bulkPut(payload.sales)
-    })
+    await db.transaction(
+      'rw',
+      db.crops,
+      db.expenses,
+      db.sales,
+      db.settlements,
+      async () => {
+        await Promise.all([
+          db.crops.clear(),
+          db.expenses.clear(),
+          db.sales.clear(),
+          db.settlements.clear(),
+        ])
+        await db.crops.bulkPut(payload.crops)
+        await db.expenses.bulkPut(payload.expenses)
+        await db.sales.bulkPut(payload.sales)
+        await db.settlements.bulkPut(payload.settlements)
+      }
+    )
 
     try {
       await db.transaction('rw', db.receipts, async () => {

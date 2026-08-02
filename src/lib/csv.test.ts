@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { statementFilename, statementToCsv } from './csv'
 import { buildStatement } from './statement'
 import { translate } from '../i18n'
-import type { Crop, Expense, Sale } from '../domain/types'
+import type { Crop, Expense, Sale, Settlement } from '../domain/types'
 
 const t = (key: Parameters<typeof translate>[1], vars?: Parameters<typeof translate>[2]) =>
   translate('en', key, vars)
@@ -44,12 +44,17 @@ const sale: Sale = {
   createdAt: '2026-11-01T00:00:00.000Z',
 }
 
-const build = (expenses: Expense[], sales: Sale[] = []) =>
+const build = (
+  expenses: Expense[],
+  sales: Sale[] = [],
+  settlements: Settlement[] = []
+) =>
   statementToCsv(
     buildStatement({
       crop,
       expenses,
       sales,
+      settlements,
       t,
       locale: 'en-IN',
       now: new Date('2026-11-15T10:00:00'),
@@ -160,5 +165,41 @@ describe('statementFilename', () => {
     expect(
       statementFilename('कापूस', 'खरीप 2026', 'csv', new Date('2026-11-15'))
     ).toBe('crop-ledger-2026-11-15.csv')
+  })
+})
+
+describe('statementToCsv with settlements', () => {
+  const paidInFull: Expense = {
+    id: 'e1',
+    cropId: 'c1',
+    amount: 300000,
+    category: 'seeds',
+    date: '2026-06-02',
+    notes: '',
+    payments: [{ id: 'p1', memberId: 'm1', amount: 300000, paidAt: '2026-06-02' }],
+    owedBy: ['m1', 'm2'],
+    createdAt: '2026-06-02T00:00:00.000Z',
+  }
+
+  it('drops a transfer that has already been settled', () => {
+    // The printed sheet is the copy that gets handed over. Telling two people
+    // to square up a debt they cleared last week is worse than useless.
+    const before = build([paidInFull])
+    expect(before).toContain('Who owes whom')
+    expect(before).toContain('Anil,Bhojraj,1500.00')
+
+    const after = build([paidInFull], [], [
+      {
+        id: 's1',
+        cropId: 'c1',
+        from: 'm2',
+        to: 'm1',
+        amount: 150000,
+        date: '2026-11-10',
+        createdAt: '2026-11-10T00:00:00.000Z',
+      },
+    ])
+    expect(after).not.toContain('Who owes whom')
+    expect(after).not.toContain('Anil,Bhojraj,1500.00')
   })
 })

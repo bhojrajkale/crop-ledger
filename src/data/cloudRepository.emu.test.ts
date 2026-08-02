@@ -8,7 +8,7 @@ import {
 import { doc, getDoc, setDoc, type Firestore } from 'firebase/firestore'
 import { cloudRepository } from './cloudRepository'
 import { uploadLocalLedger } from './cloudSync'
-import type { Crop, Expense, Receipt, Sale } from '../domain/types'
+import type { Crop, Expense, Receipt, Sale, Settlement } from '../domain/types'
 import type { BackupPayload, CropRepository } from './repository'
 
 let env: RulesTestEnvironment
@@ -56,6 +56,16 @@ const sale = (id: string, cropId: string): Sale => ({
   total: 7000000,
   date: '2026-11-01',
   createdAt: '2026-11-01T00:00:00.000Z',
+})
+
+const settlement = (id: string, cropId: string): Settlement => ({
+  id,
+  cropId,
+  from: 'm2',
+  to: 'm1',
+  amount: 150000,
+  date: '2026-11-20',
+  createdAt: '2026-11-20T00:00:00.000Z',
 })
 
 const receipt = (id: string, expenseId: string): Receipt => ({
@@ -140,6 +150,26 @@ describe('cloudRepository', () => {
     expect((await repo.listExpenses('c2')).map((e) => e.id)).toEqual(['e2'])
   })
 
+  it('round-trips a settlement', async () => {
+    await repo.saveCrop(crop('c1'))
+    await repo.saveSettlement(settlement('st1', 'c1'))
+    expect(await repo.listSettlements('c1')).toEqual([settlement('st1', 'c1')])
+  })
+
+  it('deletes a crop with its settlements', async () => {
+    // A settlement left behind would be unreachable but still counted by any
+    // export, and would reappear against a crop that no longer exists.
+    await repo.saveCrop(crop('c1'))
+    await repo.saveCrop(crop('c2'))
+    await repo.saveSettlement(settlement('st1', 'c1'))
+    await repo.saveSettlement(settlement('st2', 'c2'))
+
+    await repo.deleteCrop('c1')
+
+    expect(await repo.listSettlements('c1')).toEqual([])
+    expect((await repo.listSettlements('c2')).map((s) => s.id)).toEqual(['st2'])
+  })
+
   it('deletes an expense with its photos', async () => {
     await repo.saveExpense(expense('e1', 'c1'))
     await repo.saveReceipt(receipt('r1', 'e1'))
@@ -158,6 +188,7 @@ describe('cloudRepository', () => {
       crops: [crop('c1')],
       expenses: [expense('e1', 'c1')],
       sales: [sale('s1', 'c1')],
+      settlements: [settlement('st1', 'c1')],
       receipts: [receipt('r1', 'e1')],
     }
     const { photosFailed } = await repo.replaceAll(payload)
@@ -167,6 +198,7 @@ describe('cloudRepository', () => {
     expect(await repo.listExpenses('old')).toEqual([])
     expect(await repo.listReceipts('olde')).toEqual([])
     expect((await repo.listReceipts('e1')).map((r) => r.id)).toEqual(['r1'])
+    expect((await repo.listSettlements('c1')).map((s) => s.id)).toEqual(['st1'])
   })
 
   it('exports what it imported', async () => {
@@ -176,6 +208,7 @@ describe('cloudRepository', () => {
       // for; without it the photo would be silently left out of the backup.
       expenses: [{ ...expense('e1', 'c1'), receiptCount: 1 }],
       sales: [sale('s1', 'c1')],
+      settlements: [],
       receipts: [receipt('r1', 'e1')],
     }
     await repo.replaceAll(payload)
@@ -201,6 +234,8 @@ function fakeLocal(payload: BackupPayload): CropRepository {
     listExpenses: async (cropId) =>
       payload.expenses.filter((e) => e.cropId === cropId),
     listSales: async (cropId) => payload.sales.filter((s) => s.cropId === cropId),
+    listSettlements: async (cropId) =>
+      payload.settlements.filter((s) => s.cropId === cropId),
     listReceipts: async () => payload.receipts,
     saveCrop: unused,
     deleteCrop: unused,
@@ -208,6 +243,8 @@ function fakeLocal(payload: BackupPayload): CropRepository {
     deleteExpense: unused,
     saveSale: unused,
     deleteSale: unused,
+    saveSettlement: unused,
+    deleteSettlement: unused,
     saveReceipt: unused,
     deleteReceipt: unused,
     replaceAll: unused,
@@ -220,6 +257,7 @@ describe('uploadLocalLedger against a real account', () => {
       crops: [crop('c1')],
       expenses: [expense('e1', 'c1')],
       sales: [],
+      settlements: [],
       receipts: [],
     })
 
@@ -235,6 +273,7 @@ describe('uploadLocalLedger against a real account', () => {
       crops: [crop('local-only')],
       expenses: [],
       sales: [],
+      settlements: [],
       receipts: [],
     })
     await repo.saveCrop(crop('already-there'))

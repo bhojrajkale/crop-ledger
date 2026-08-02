@@ -1,5 +1,13 @@
 import { create } from 'zustand'
-import type { Crop, Expense, Member, Payment, Receipt, Sale } from '../domain/types'
+import type {
+  Crop,
+  Expense,
+  Member,
+  Payment,
+  Receipt,
+  Sale,
+  Settlement,
+} from '../domain/types'
 import { dexieRepository, type CropRepository } from '../data/repository'
 import { buildBackup, parseBackup, type ParseResult } from '../data/backup'
 import { applyPayment, removePayment } from '../domain/payments'
@@ -30,6 +38,8 @@ interface LedgerState {
   expenses: Expense[]
   /** Harvest sales for the crop currently open. */
   sales: Sale[]
+  /** Money members have handed each other to square up on the open crop. */
+  settlements: Settlement[]
   loadedCropId: string | null
   loading: boolean
   /**
@@ -75,6 +85,9 @@ interface LedgerState {
   saveSale: (sale: Sale) => Promise<void>
   deleteSale: (saleId: string) => Promise<void>
 
+  saveSettlement: (settlement: Settlement) => Promise<void>
+  deleteSettlement: (settlementId: string) => Promise<void>
+
   /** Records money paid towards an expense bought on credit. */
   recordPayment: (
     expenseId: string,
@@ -118,6 +131,7 @@ export const useLedgerStore = create<LedgerState>((set, get) => ({
   crops: [],
   expenses: [],
   sales: [],
+  settlements: [],
   loadedCropId: null,
   loading: true,
   cropLoading: false,
@@ -129,7 +143,14 @@ export const useLedgerStore = create<LedgerState>((set, get) => ({
     // Drop the previous account's rows before reading the new ones. Showing
     // one ledger under another's heading, even for a moment, is the kind of
     // thing that gets acted on.
-    set({ crops: [], expenses: [], sales: [], loading: true, storage })
+    set({
+      crops: [],
+      expenses: [],
+      sales: [],
+      settlements: [],
+      loading: true,
+      storage,
+    })
     await get().load()
     const cropId = get().loadedCropId
     if (cropId) await get().openCrop(cropId)
@@ -150,7 +171,13 @@ export const useLedgerStore = create<LedgerState>((set, get) => ({
   async openCrop(cropId) {
     // Clear the previous crop's rows first so a slow read can never show one
     // crop's expenses under another crop's heading.
-    set({ expenses: [], sales: [], loadedCropId: cropId, cropLoading: true })
+    set({
+      expenses: [],
+      sales: [],
+      settlements: [],
+      loadedCropId: cropId,
+      cropLoading: true,
+    })
     try {
       // Paint from whatever this device already holds, when the repository
       // can answer without the network. The read below still runs and still
@@ -158,19 +185,25 @@ export const useLedgerStore = create<LedgerState>((set, get) => ({
       // spinning on rows that were sitting on the phone all along.
       const cached = await repo.cachedCropData?.(cropId)
       if (cached && get().loadedCropId === cropId) {
-        set({ expenses: cached.expenses, sales: cached.sales, cropLoading: false })
+        set({
+          expenses: cached.expenses,
+          sales: cached.sales,
+          settlements: cached.settlements,
+          cropLoading: false,
+        })
       }
 
-      const [expenses, sales] = await Promise.all([
+      const [expenses, sales, settlements] = await Promise.all([
         repo.listExpenses(cropId),
         repo.listSales(cropId),
+        repo.listSettlements(cropId),
       ])
       // Guard against an out-of-order resolve if the user switched crops
       // while this read was in flight. The flag is left alone in that case
       // too — the newer read owns it, and clearing it here would drop the
       // spinner while that one is still running.
       if (get().loadedCropId === cropId) {
-        set({ expenses, sales, cropLoading: false, error: null })
+        set({ expenses, sales, settlements, cropLoading: false, error: null })
       }
     } catch (e) {
       if (get().loadedCropId === cropId) set({ cropLoading: false })
@@ -200,7 +233,14 @@ export const useLedgerStore = create<LedgerState>((set, get) => ({
       const crops = get().crops.filter((c) => c.id !== cropId)
       set(
         get().loadedCropId === cropId
-          ? { crops, expenses: [], sales: [], loadedCropId: null, error: null }
+          ? {
+              crops,
+              expenses: [],
+              sales: [],
+              settlements: [],
+              loadedCropId: null,
+              error: null,
+            }
           : { crops, error: null }
       )
     } catch (e) {
@@ -288,6 +328,41 @@ export const useLedgerStore = create<LedgerState>((set, get) => ({
     }
   },
 
+  async saveSettlement(settlement) {
+    try {
+      await repo.saveSettlement(settlement)
+      if (get().loadedCropId === settlement.cropId) {
+        set({
+          settlements: upsertSorted(
+            get().settlements,
+            settlement,
+            byNewestFirst
+          ),
+          error: null,
+        })
+      }
+    } catch (e) {
+      set({ error: message(e) })
+      throw e
+    }
+  },
+
+  async deleteSettlement(settlementId) {
+    const cropId = get().loadedCropId
+    try {
+      await repo.deleteSettlement(settlementId)
+      if (cropId) {
+        set({
+          settlements: get().settlements.filter((s) => s.id !== settlementId),
+          error: null,
+        })
+      }
+    } catch (e) {
+      set({ error: message(e) })
+      throw e
+    }
+  },
+
   async recordPayment(expenseId, payment) {
     const expense = get().expenses.find((e) => e.id === expenseId)
     if (!expense) return { trimmed: false }
@@ -329,6 +404,7 @@ export const useLedgerStore = create<LedgerState>((set, get) => ({
         crops: await repo.listCrops(),
         expenses: cropId ? await repo.listExpenses(cropId) : [],
         sales: cropId ? await repo.listSales(cropId) : [],
+        settlements: cropId ? await repo.listSettlements(cropId) : [],
         error: null,
       })
       return { ...result, photosFailed }

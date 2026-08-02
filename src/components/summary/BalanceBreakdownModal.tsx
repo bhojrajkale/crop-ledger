@@ -56,6 +56,22 @@ export function BalanceBreakdownModal({
               />
             </>
           ) : null}
+          {/* Likewise: only shown once somebody has actually squared up, so
+              the sum does not grow lines that are all zero. */}
+          {parts.settlementsPaid > 0 || parts.settlementsReceived > 0 ? (
+            <>
+              <Line
+                label={t('breakdownSettlementsPaid')}
+                amount={parts.settlementsPaid}
+                sign="+"
+              />
+              <Line
+                label={t('breakdownSettlementsReceived')}
+                amount={parts.settlementsReceived}
+                sign="−"
+              />
+            </>
+          ) : null}
 
           <div className="flex items-baseline justify-between gap-3 pt-3 mt-2 border-t border-[var(--divider)]">
             <span className="font-medium text-[var(--ink)]">

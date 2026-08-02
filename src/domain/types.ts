@@ -163,3 +163,29 @@ export interface Transfer {
   to: string // member id
   amount: Paise
 }
+
+/**
+ * Money one member actually handed to another to square up — the transfer
+ * above, once it has really happened.
+ *
+ * This is the only movement in the ledger that is purely between members, and
+ * that is what makes it simple: it settles nothing with the outside world, so
+ * `computeOutstanding()` must never see it. A shop is still owed exactly what
+ * it was owed before.
+ *
+ * Arithmetically it is a symmetric pair — the payer is credited, the receiver
+ * debited, by the same amount — so the zero-sum invariant holds by
+ * construction rather than by care.
+ */
+export interface Settlement {
+  id: string
+  cropId: string
+  /** Member who handed the money over. */
+  from: string
+  /** Member who received it. */
+  to: string
+  amount: Paise
+  date: string // ISO yyyy-mm-dd
+  note?: string
+  createdAt: string // ISO timestamp
+}

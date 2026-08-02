@@ -196,6 +196,31 @@ export class App {
     return this.page.getByTestId('person-row').filter({ hasText: name }).first()
   }
 
+  get settlementRows() {
+    return this.page.getByTestId('settlement-row')
+  }
+
+  /**
+   * Records the suggested transfer on the first row, optionally for a
+   * different amount than the one suggested.
+   */
+  async settleUp(options: { amount?: string; note?: string } = {}) {
+    await this.transferRows
+      .first()
+      .getByRole('button', { name: 'Mark settled' })
+      .click()
+    const form = this.dialog
+    await expect(form).toBeVisible()
+    if (options.amount !== undefined) {
+      await form.getByLabel('Amount handed over').fill(options.amount)
+    }
+    if (options.note !== undefined) {
+      await form.getByLabel('Note (optional)').fill(options.note)
+    }
+    await form.getByRole('button', { name: 'Mark settled' }).click()
+    await expect(form).toBeHidden()
+  }
+
   /**
    * Asserts a figure appears somewhere on the page.
    *

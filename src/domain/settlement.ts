@@ -1,4 +1,4 @@
-import type { Expense, Member, Paise, Sale, Transfer } from './types'
+import type { Expense, Member, Paise, Sale, Settlement, Transfer } from './types'
 import { allocateProportionally, resolveSplit, splitEqually } from './split'
 import { sum } from './money'
 import { amountOutstanding, amountPaid } from './payments'
@@ -20,19 +20,27 @@ import { amountOutstanding, amountPaid } from './payments'
  * everyone's share proportionally (see allocateProportionally). Outstanding
  * credit is reported separately by computeOutstanding().
  *
- * `sales` is optional and unused so far. A sale is arithmetically an inverted
- * expense: whoever collected the cash is holding money that belongs to the
- * group, so they are debited the total while every member is credited an
- * equal share. Wiring it here now means adding revenue later is a form and a
- * screen, not a change to the settlement engine.
+ * A sale is arithmetically an inverted expense: whoever collected the cash is
+ * holding money that belongs to the group, so they are debited the total while
+ * every member is credited an equal share.
+ *
+ * `settlements` are the transfers members have actually made to square up.
+ * They move a balance towards zero without touching what any shop is owed,
+ * which is why they belong here and not in computeOutstanding().
  */
 export function computeBalances(
   members: Member[],
   expenses: Expense[],
-  sales: Sale[] = []
+  sales: Sale[] = [],
+  settlements: Settlement[] = []
 ): Map<string, Paise> {
   const balances = new Map<string, Paise>()
-  for (const [id, parts] of explainBalances(members, expenses, sales)) {
+  for (const [id, parts] of explainBalances(
+    members,
+    expenses,
+    sales,
+    settlements
+  )) {
     balances.set(id, parts.balance)
   }
   return balances
@@ -42,6 +50,7 @@ export function computeBalances(
  * The parts a balance is made of, per member:
  *
  *     balance = paidOut − expenseShare + revenueShare − revenueHeld
+ *               + settlementsPaid − settlementsReceived
  *
  * A settlement figure on its own is something the user has to
  * reverse-engineer, and never more so than once a harvest is involved: most
@@ -61,6 +70,10 @@ export interface BalanceBreakdown {
   revenueShare: Paise
   /** Sale money they collected, which belongs to the group. */
   revenueHeld: Paise
+  /** Money they handed to another member to square up. */
+  settlementsPaid: Paise
+  /** Money another member handed them for the same reason. */
+  settlementsReceived: Paise
   balance: Paise
 }
 
@@ -69,7 +82,8 @@ type BalancePart = keyof Omit<BalanceBreakdown, 'balance'>
 export function explainBalances(
   members: Member[],
   expenses: Expense[],
-  sales: Sale[] = []
+  sales: Sale[] = [],
+  settlements: Settlement[] = []
 ): Map<string, BalanceBreakdown> {
   const parts = new Map<string, BalanceBreakdown>()
   for (const member of members) {
@@ -78,6 +92,8 @@ export function explainBalances(
       expenseShare: 0,
       revenueShare: 0,
       revenueHeld: 0,
+      settlementsPaid: 0,
+      settlementsReceived: 0,
       balance: 0,
     })
   }
@@ -85,7 +101,7 @@ export function explainBalances(
   const add = (memberId: string, part: BalancePart, amount: Paise) => {
     // Members removed after an expense was recorded are intentionally not
     // resurrected here — their share is dropped rather than silently
-    // reassigned. countMemberExpenses() warns before that removal happens.
+    // reassigned. countMemberEntries() warns before that removal happens.
     const entry = parts.get(memberId)
     if (!entry) return
     entry[part] += amount
@@ -113,9 +129,25 @@ export function explainBalances(
     }
   }
 
+  // A settlement is a symmetric pair — the same amount credited to the payer
+  // and debited from the receiver — so it can only move balances towards each
+  // other, never break their sum. Note it is deliberately not clamped to what
+  // is owed: paying someone more than their share means they now owe the
+  // difference, which is a real state the ledger should be able to show rather
+  // than quietly discard.
+  for (const settlement of settlements) {
+    add(settlement.from, 'settlementsPaid', settlement.amount)
+    add(settlement.to, 'settlementsReceived', settlement.amount)
+  }
+
   for (const entry of parts.values()) {
     entry.balance =
-      entry.paidOut - entry.expenseShare + entry.revenueShare - entry.revenueHeld
+      entry.paidOut -
+      entry.expenseShare +
+      entry.revenueShare -
+      entry.revenueHeld +
+      entry.settlementsPaid -
+      entry.settlementsReceived
   }
 
   return parts
@@ -235,18 +267,28 @@ export function computeTotals(
 }
 
 /**
- * How many expenses reference a member, as a payer or an ower. Used to warn
- * before removing someone: removal does not rewrite history, so their share
- * would be dropped from the balances and the old rows would no longer name
- * anyone.
+ * How many rows reference a member — expenses they paid or owe a share of,
+ * plus settlements they were either side of. Used to warn before removing
+ * someone: removal does not rewrite history, so their side of these rows is
+ * dropped from the balances while the other side survives, and the totals
+ * stop summing to zero.
+ *
+ * Settlements count for exactly that reason. Someone who never paid for
+ * anything but was handed money to square up still has history here, and
+ * without this they would read as safe to remove.
  */
-export function countMemberExpenses(
+export function countMemberEntries(
   expenses: Expense[],
-  memberId: string
+  memberId: string,
+  settlements: Settlement[] = []
 ): number {
-  return expenses.filter(
+  const inExpenses = expenses.filter(
     (e) =>
       e.owedBy.includes(memberId) ||
       e.payments.some((p) => p.memberId === memberId)
   ).length
+  const inSettlements = settlements.filter(
+    (s) => s.from === memberId || s.to === memberId
+  ).length
+  return inExpenses + inSettlements
 }

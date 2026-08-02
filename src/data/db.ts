@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie'
-import type { Crop, Expense, Receipt, Sale } from '../domain/types'
+import type { Crop, Expense, Receipt, Sale, Settlement } from '../domain/types'
 import { migrateExpense } from './migrate'
 
 /**
@@ -17,6 +17,7 @@ class CropLedgerDB extends Dexie {
   expenses!: EntityTable<Expense, 'id'>
   sales!: EntityTable<Sale, 'id'>
   receipts!: EntityTable<Receipt, 'id'>
+  settlements!: EntityTable<Settlement, 'id'>
 
   constructor() {
     super('crop-ledger')
@@ -55,6 +56,16 @@ class CropLedgerDB extends Dexie {
       expenses: 'id, cropId, date, category',
       sales: 'id, cropId, date, receivedBy',
       receipts: 'id, expenseId',
+    })
+    // v4: settlements — money members actually handed each other to square up
+    // at the end of a season. Purely additive, like v3: existing devices gain
+    // an empty table and every balance stays exactly what it was.
+    this.version(4).stores({
+      crops: 'id, name, season, startDate, archived',
+      expenses: 'id, cropId, date, category',
+      sales: 'id, cropId, date, receivedBy',
+      receipts: 'id, expenseId',
+      settlements: 'id, cropId, date',
     })
   }
 }

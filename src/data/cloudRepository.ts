@@ -15,7 +15,7 @@ import {
   type Firestore,
   type WriteBatch,
 } from 'firebase/firestore'
-import type { Crop, Expense, Receipt, Sale } from '../domain/types'
+import type { Crop, Expense, Receipt, Sale, Settlement } from '../domain/types'
 import { byNewestFirst, byStartDateDesc } from '../domain/order'
 import { receiptBytes } from '../lib/image'
 import { getFirebase } from './firebase'
@@ -29,6 +29,7 @@ import type { CropRepository } from './repository'
  *   users/{uid}/expenses/{expenseId}
  *   users/{uid}/expenses/{expenseId}/receipts/{receiptId}
  *   users/{uid}/sales/{saleId}
+ *   users/{uid}/settlements/{settlementId}
  *
  * The flat shape (expenses beside crops rather than nested inside them) is
  * deliberate: it is exactly what the local schema does, so the two
@@ -185,6 +186,7 @@ export function cloudRepository(
   const crops = () => collection(db, `${root}/crops`)
   const expenses = () => collection(db, `${root}/expenses`)
   const sales = () => collection(db, `${root}/sales`)
+  const settlements = () => collection(db, `${root}/settlements`)
   const receipts = (expenseId: string) =>
     collection(db, `${root}/expenses/${expenseId}/receipts`)
 
@@ -208,6 +210,9 @@ export function cloudRepository(
     async deleteCrop(cropId) {
       const owned = await getDocs(query(expenses(), where('cropId', '==', cropId)))
       const cropSales = await getDocs(query(sales(), where('cropId', '==', cropId)))
+      const cropSettlements = await getDocs(
+        query(settlements(), where('cropId', '==', cropId))
+      )
       // Receipts hang off expenses, so their ids have to be collected before
       // the expenses go — afterwards there is nothing left to enumerate them
       // from, and the photos would sit in the account forever.
@@ -224,6 +229,7 @@ export function cloudRepository(
       }
       for (const d of owned.docs) batch.delete(d.ref)
       for (const d of cropSales.docs) batch.delete(d.ref)
+      for (const d of cropSettlements.docs) batch.delete(d.ref)
       batch.delete(doc(crops(), cropId))
       await queued(batch.commit())
     },
@@ -290,19 +296,26 @@ export function cloudRepository(
      */
     async cachedCropData(cropId) {
       try {
-        const [expenseDocs, saleDocs] = await Promise.all([
+        const [expenseDocs, saleDocs, settlementDocs] = await Promise.all([
           getDocsFromCache(query(expenses(), where('cropId', '==', cropId))),
           getDocsFromCache(query(sales(), where('cropId', '==', cropId))),
+          getDocsFromCache(query(settlements(), where('cropId', '==', cropId))),
         ])
-        if (expenseDocs.empty && saleDocs.empty) return null
+        if (expenseDocs.empty && saleDocs.empty && settlementDocs.empty) {
+          return null
+        }
 
         const cachedExpenses = expenseDocs.docs.map((d) => d.data() as Expense)
         const cachedSales = saleDocs.docs.map((d) => d.data() as Sale)
+        const cachedSettlements = settlementDocs.docs.map(
+          (d) => d.data() as Settlement
+        )
         return {
           // Same ordering as the server-backed reads, so the rows do not
           // visibly reshuffle when the fresh copy lands.
           expenses: cachedExpenses.sort(byNewestFirst),
           sales: cachedSales.sort(byNewestFirst),
+          settlements: cachedSettlements.sort(byNewestFirst),
         }
       } catch {
         // No cache, or it could not be read. Not an error worth surfacing —
@@ -328,11 +341,27 @@ export function cloudRepository(
       await queued(deleteDoc(doc(sales(), saleId)))
     },
 
+    async listSettlements(cropId) {
+      const rows = (
+        await getDocs(query(settlements(), where('cropId', '==', cropId)))
+      ).docs.map((d) => d.data() as Settlement)
+      return rows.sort(byNewestFirst)
+    },
+
+    async saveSettlement(settlement) {
+      await queued(setDoc(doc(settlements(), settlement.id), clean(settlement)))
+    },
+
+    async deleteSettlement(settlementId) {
+      await queued(deleteDoc(doc(settlements(), settlementId)))
+    },
+
     async exportAll() {
-      const [cropRows, expenseRows, saleRows] = await Promise.all([
+      const [cropRows, expenseRows, saleRows, settlementRows] = await Promise.all([
         readAll<Crop>(crops()),
         readAll<Expense>(expenses()),
         readAll<Sale>(sales()),
+        readAll<Settlement>(settlements()),
       ])
       // Only expenses that claim a photo are asked for one, so an ordinary
       // export costs one read per expense that actually has receipts rather
@@ -350,6 +379,7 @@ export function cloudRepository(
         crops: cropRows,
         expenses: expenseRows,
         sales: saleRows,
+        settlements: settlementRows,
         receipts: photos.flat(),
       }
     },
@@ -367,6 +397,7 @@ export function cloudRepository(
         getDocs(crops()),
         getDocs(expenses()),
         getDocs(sales()),
+        getDocs(settlements()),
       ])
       const oldPhotos = await Promise.all(
         existing[1].docs.map(async (d) => ({
@@ -387,6 +418,9 @@ export function cloudRepository(
       }
       for (const sale of payload.sales) {
         batch.set(doc(sales(), sale.id), clean(sale))
+      }
+      for (const settlement of payload.settlements) {
+        batch.set(doc(settlements(), settlement.id), clean(settlement))
       }
       await batch.commit()
 

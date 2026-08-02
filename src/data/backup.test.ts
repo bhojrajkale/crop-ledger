@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { backupFilename, buildBackup, parseBackup } from './backup'
-import type { Crop, Expense } from '../domain/types'
+import type { Crop, Expense, Settlement } from '../domain/types'
 
 const crop: Crop = {
   id: 'c1',
@@ -29,15 +29,16 @@ const validFile = async () =>
       crops: [crop],
       expenses: [expense],
       sales: [],
+      settlements: [],
       receipts: [],
     })
   )
 
 describe('buildBackup', () => {
   it('stamps the app name and version so imports can be checked', async () => {
-    const backup = await buildBackup({ crops: [], expenses: [], sales: [], receipts: [] })
+    const backup = await buildBackup({ crops: [], expenses: [], sales: [], settlements: [], receipts: [] })
     expect(backup.app).toBe('crop-ledger')
-    expect(backup.version).toBe(2)
+    expect(backup.version).toBe(3)
     expect(backup.exportedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/)
   })
 })
@@ -169,6 +170,7 @@ describe('receipts in backups', () => {
         crops: [crop],
         expenses: [expense],
         sales: [],
+        settlements: [],
         receipts: [receipt],
       })
     )
@@ -178,6 +180,7 @@ describe('receipts in backups', () => {
       crops: [],
       expenses: [],
       sales: [],
+      settlements: [],
       receipts: [receipt],
     })
     expect(backup.receipts[0]!.image).toMatch(/^data:image\/jpeg;base64,/)
@@ -235,5 +238,70 @@ describe('receipts in backups', () => {
     )
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.error).toMatch(/damaged photos/)
+  })
+})
+
+describe('settlements in a backup', () => {
+  const settlement: Settlement = {
+    id: 's1',
+    cropId: 'c1',
+    from: 'b',
+    to: 'a',
+    amount: 150000,
+    date: '2026-11-20',
+    note: 'cash',
+    createdAt: '2026-11-20T00:00:00.000Z',
+  }
+
+  const fileWith = async (settlements: Settlement[]) =>
+    JSON.stringify(
+      await buildBackup({
+        crops: [crop],
+        expenses: [expense],
+        sales: [],
+        settlements,
+        receipts: [],
+      })
+    )
+
+  it('survives a round trip intact', async () => {
+    const result = await parseBackup(await fileWith([settlement]))
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.payload.settlements).toEqual([settlement])
+  })
+
+  it('restores an older backup that predates settling up', async () => {
+    // Every backup written before this feature has no `settlements` key at
+    // all. Refusing those would strand the only copy of somebody's ledger.
+    const result = await parseBackup(
+      JSON.stringify({
+        app: 'crop-ledger',
+        version: 2,
+        crops: [crop],
+        expenses: [expense],
+        sales: [],
+        receipts: [],
+      })
+    )
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.payload.settlements).toEqual([])
+  })
+
+  it('refuses a file with a half-recorded settlement', async () => {
+    // A settlement missing a side would shift a balance with nothing to show
+    // for it — silent, and impossible to spot afterwards.
+    const result = await parseBackup(
+      JSON.stringify({
+        app: 'crop-ledger',
+        version: 3,
+        crops: [crop],
+        expenses: [expense],
+        sales: [],
+        settlements: [{ id: 's1', cropId: 'c1', from: 'b', amount: 150000 }],
+        receipts: [],
+      })
+    )
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toMatch(/damaged records/)
   })
 })

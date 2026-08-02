@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest'
 import {
   computeBalances,
   computeTotals,
-  countMemberExpenses,
+  countMemberEntries,
   explainBalances,
   minimizeTransfers,
 } from './settlement'
 import { sum, toPaise } from './money'
-import type { Expense, Member, Sale } from './types'
+import type { Expense, Member, Sale, Settlement } from './types'
 
 const members: Member[] = [
   { id: 'a', name: 'Anil' },
@@ -247,20 +247,20 @@ describe('computeTotals', () => {
   })
 })
 
-describe('countMemberExpenses', () => {
+describe('countMemberEntries', () => {
   const expenses = [
     expense({ id: 'e1', paidBy: 'a', owedBy: ['b'] }),
     expense({ id: 'e2', paidBy: 'b', owedBy: ['b', 'c'] }),
   ]
 
   it('counts a member as payer or ower, without double counting', () => {
-    expect(countMemberExpenses(expenses, 'a')).toBe(1)
-    expect(countMemberExpenses(expenses, 'b')).toBe(2)
-    expect(countMemberExpenses(expenses, 'c')).toBe(1)
+    expect(countMemberEntries(expenses, 'a')).toBe(1)
+    expect(countMemberEntries(expenses, 'b')).toBe(2)
+    expect(countMemberEntries(expenses, 'c')).toBe(1)
   })
 
   it('returns zero for someone with no history', () => {
-    expect(countMemberExpenses(expenses, 'nobody')).toBe(0)
+    expect(countMemberEntries(expenses, 'nobody')).toBe(0)
   })
 })
 
@@ -529,5 +529,148 @@ describe('one expense paid by two people in unequal amounts', () => {
     const parts = explainBalances(pair, partly)
     expect(parts.get('m1')?.balance).toBe(250000)
     expect(parts.get('m2')?.balance).toBe(-250000)
+  })
+})
+
+describe('settling up between members', () => {
+  const pair: Member[] = [
+    { id: 'a', name: 'Anil' },
+    { id: 'b', name: 'Bhau' },
+  ]
+
+  /** Anil paid ₹300 shared two ways, so Bhau owes him ₹150. */
+  const shared = [
+    expense({ amount: toPaise(300), paidBy: 'a', owedBy: ['a', 'b'] }),
+  ]
+
+  const settlement = (overrides: Partial<Settlement> = {}): Settlement => ({
+    id: 's1',
+    cropId: 'c1',
+    from: 'b',
+    to: 'a',
+    amount: toPaise(150),
+    date: '2026-11-20',
+    createdAt: '2026-11-20T00:00:00.000Z',
+    ...overrides,
+  })
+
+  it('clears the balance the transfer was suggested for', () => {
+    const before = computeBalances(pair, shared)
+    const [suggested] = minimizeTransfers(before)
+    expect(suggested).toEqual({ from: 'b', to: 'a', amount: toPaise(150) })
+
+    const after = computeBalances(pair, shared, [], [settlement()])
+    expect(balancesOf(after)).toEqual({ a: 0, b: 0 })
+    expect(minimizeTransfers(after)).toEqual([])
+  })
+
+  it('leaves the rest outstanding when only part of it is handed over', () => {
+    const after = computeBalances(pair, shared, [], [
+      settlement({ amount: toPaise(50) }),
+    ])
+    expect(balancesOf(after)).toEqual({ a: toPaise(100), b: -toPaise(100) })
+    expect(minimizeTransfers(after)).toEqual([
+      { from: 'b', to: 'a', amount: toPaise(100) },
+    ])
+  })
+
+  it('flips who owes whom on an overpayment rather than clamping it', () => {
+    // Bhau owed ₹150 and handed over ₹200. The ₹50 difference is now Anil's
+    // to give back — a real state, and one the ledger has to be able to show.
+    const after = computeBalances(pair, shared, [], [
+      settlement({ amount: toPaise(200) }),
+    ])
+    expect(balancesOf(after)).toEqual({ a: -toPaise(50), b: toPaise(50) })
+    expect(minimizeTransfers(after)).toEqual([
+      { from: 'a', to: 'b', amount: toPaise(50) },
+    ])
+  })
+
+  it('does not change what is still owed outside the group', () => {
+    // The whole point of keeping the two kinds of debt apart: members squaring
+    // up with each other settles nothing with the shop.
+    const onCredit = [
+      expense({ amount: toPaise(300), payments: [], owedBy: ['a', 'b'] }),
+    ]
+    const before = computeTotals(pair, onCredit).outstanding
+    computeBalances(pair, onCredit, [], [settlement()])
+    expect(computeTotals(pair, onCredit).outstanding).toBe(before)
+    expect(before).toBe(toPaise(300))
+  })
+
+  it('keeps balances summing to zero, with sales and credit in play', () => {
+    const members3: Member[] = [...pair, { id: 'c', name: 'Chandra' }]
+    const expenses: Expense[] = [
+      expense({ id: 'e1', amount: 100001, paidBy: 'a', owedBy: ['a', 'b', 'c'] }),
+      expense({
+        id: 'e2',
+        amount: 70000,
+        payments: [{ id: 'p1', memberId: 'b', amount: 30000, paidAt: '2026-06-02' }],
+        owedBy: ['a', 'b', 'c'],
+      }),
+    ]
+    const sales: Sale[] = [
+      {
+        id: 'sale1',
+        cropId: 'c1',
+        receivedBy: 'c',
+        quantity: 7,
+        unit: 'quintal',
+        rate: 100003,
+        total: 700021,
+        date: '2026-11-01',
+        createdAt: '2026-11-01T00:00:00.000Z',
+      },
+    ]
+    const settlements = [
+      settlement({ id: 's1', from: 'b', to: 'a', amount: 33337 }),
+      settlement({ id: 's2', from: 'c', to: 'b', amount: 12345 }),
+    ]
+
+    const balances = computeBalances(members3, expenses, sales, settlements)
+    expect(sum([...balances.values()])).toBe(0)
+  })
+
+  it('reports both sides of a settlement in the breakdown', () => {
+    const parts = explainBalances(pair, shared, [], [settlement()])
+    expect(parts.get('b')?.settlementsPaid).toBe(toPaise(150))
+    expect(parts.get('b')?.settlementsReceived).toBe(0)
+    expect(parts.get('a')?.settlementsReceived).toBe(toPaise(150))
+    expect(parts.get('a')?.settlementsPaid).toBe(0)
+  })
+
+  it('nets out a settlement recorded in both directions', () => {
+    const after = computeBalances(pair, shared, [], [
+      settlement({ id: 's1', from: 'b', to: 'a', amount: toPaise(150) }),
+      settlement({ id: 's2', from: 'a', to: 'b', amount: toPaise(150) }),
+    ])
+    expect(balancesOf(after)).toEqual(balancesOf(computeBalances(pair, shared)))
+  })
+})
+
+describe('countMemberEntries', () => {
+  const settlement: Settlement = {
+    id: 's1',
+    cropId: 'c1',
+    from: 'b',
+    to: 'a',
+    amount: toPaise(150),
+    date: '2026-11-20',
+    createdAt: '2026-11-20T00:00:00.000Z',
+  }
+
+  it('counts someone who only ever settled up', () => {
+    // Without this they read as safe to remove, and removing them would drop
+    // one side of the transfer while the other side survives.
+    expect(countMemberEntries([], 'b', [settlement])).toBe(1)
+    expect(countMemberEntries([], 'a', [settlement])).toBe(1)
+  })
+
+  it('counts both kinds of history together', () => {
+    expect(countMemberEntries([expense({ paidBy: 'b' })], 'b', [settlement])).toBe(2)
+  })
+
+  it('still returns zero for someone with no history at all', () => {
+    expect(countMemberEntries([], 'c', [settlement])).toBe(0)
   })
 })

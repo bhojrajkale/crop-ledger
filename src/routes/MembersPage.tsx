@@ -6,7 +6,7 @@ import { Card, EmptyState } from '../components/ui/Card'
 import { Field } from '../components/ui/Field'
 import { Modal } from '../components/ui/Modal'
 import { Avatar } from '../components/ui/Chip'
-import { countMemberExpenses } from '../domain/settlement'
+import { countMemberEntries } from '../domain/settlement'
 import { initials } from '../lib/format'
 import { useT } from '../i18n'
 import { newId } from '../lib/id'
@@ -16,6 +16,7 @@ export function MembersPage() {
   const { cropId } = useParams<{ cropId: string }>()
   const crops = useLedgerStore((s) => s.crops)
   const expenses = useLedgerStore((s) => s.expenses)
+  const settlements = useLedgerStore((s) => s.settlements)
   const setMembers = useLedgerStore((s) => s.setMembers)
   const t = useT()
 
@@ -73,7 +74,7 @@ export function MembersPage() {
       ) : (
         <ul className="space-y-2">
           {members.map((member) => {
-            const count = countMemberExpenses(expenses, member.id)
+            const count = countMemberEntries(expenses, member.id, settlements)
             return (
               <li key={member.id}>
                 <Card className="flex items-center gap-3">
@@ -127,7 +128,9 @@ export function MembersPage() {
 
       <RemoveModal
         member={removing}
-        expenseCount={removing ? countMemberExpenses(expenses, removing.id) : 0}
+        expenseCount={
+          removing ? countMemberEntries(expenses, removing.id, settlements) : 0
+        }
         onClose={() => setRemoving(null)}
         onConfirm={async () => {
           if (!removing) return

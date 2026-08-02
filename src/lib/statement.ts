@@ -1,4 +1,4 @@
-import type { Crop, Expense, Paise, Sale } from '../domain/types'
+import type { Crop, Expense, Paise, Sale, Settlement } from '../domain/types'
 import { computeBalances, computeTotals, minimizeTransfers } from '../domain/settlement'
 import { amountOutstanding, amountPaid, computeOutstanding } from '../domain/payments'
 import { computeRevenue } from '../domain/revenue'
@@ -49,6 +49,13 @@ export interface StatementInput {
   crop: Crop
   expenses: Expense[]
   sales: Sale[]
+  /**
+   * Required, not optional with a default. A printed sheet that quietly
+   * omitted settlements would tell two people to pay each other for a debt
+   * they cleared last week — and it is the copy that gets handed over, so it
+   * is the one that has to agree with the screen.
+   */
+  settlements: Settlement[]
   t: Translate
   locale: string
   /** Injectable so the generated-on line is assertable in a test. */
@@ -62,6 +69,7 @@ export function buildStatement({
   crop,
   expenses,
   sales,
+  settlements,
   t,
   locale,
   now = new Date(),
@@ -69,7 +77,7 @@ export function buildStatement({
   const members = crop.members
   const totals = computeTotals(members, expenses)
   const revenue = computeRevenue(members, sales, totals.total)
-  const balances = computeBalances(members, expenses, sales)
+  const balances = computeBalances(members, expenses, sales, settlements)
   const transfers = minimizeTransfers(balances)
   const outstanding = computeOutstanding(expenses)
 

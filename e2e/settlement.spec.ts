@@ -104,3 +104,70 @@ test.describe('settlement and harvest', () => {
     await expect(app.personRow('Ganesh')).toContainText('owes ₹3,000')
   })
 })
+
+test.describe('settling up at the end of a season', () => {
+  let app: App
+
+  test.beforeEach(async ({ page }) => {
+    app = new App(page)
+    await app.open()
+    await app.createCrop('Cotton', 'Kharif 2026')
+    await app.openCrop('Cotton')
+    await app.addPeople('Bhojraj', 'Ganesh')
+    await app.addExpense({ amount: '8000', paidBy: 'Bhojraj' })
+    await app.goToTab('Summary')
+  })
+
+  test('clears the suggested transfer once the money changes hands', async () => {
+    await expect(app.transferRows).toHaveCount(1)
+
+    await app.settleUp({ note: 'cash' })
+
+    // The whole point: the ledger stops asking for a payment that happened.
+    await expect(app.transferRows).toHaveCount(0)
+    await app.shows('Everyone is square')
+    await expect(app.settlementRows).toHaveCount(1)
+    await expect(app.settlementRows.first()).toContainText('Bhojraj')
+    await expect(app.settlementRows.first()).toContainText('₹4,000')
+    await expect(app.settlementRows.first()).toContainText('cash')
+  })
+
+  test('survives a reload', async ({ page }) => {
+    await app.settleUp()
+    await page.reload()
+    await expect(app.settlementRows).toHaveCount(1)
+    await expect(app.transferRows).toHaveCount(0)
+  })
+
+  test('leaves the remainder owing after a part settlement', async () => {
+    await app.settleUp({ amount: '1500' })
+
+    await expect(app.transferRows).toHaveCount(1)
+    await expect(app.transferRows.first()).toContainText('₹2,500')
+    await expect(app.personRow('Ganesh')).toContainText('owes ₹2,500')
+  })
+
+  test('undoes a settlement and puts the balance back', async () => {
+    await app.settleUp()
+    await expect(app.transferRows).toHaveCount(0)
+
+    await app.settlementRows
+      .first()
+      .getByRole('button', { name: /Undo settlement/ })
+      .click()
+
+    await expect(app.settlementRows).toHaveCount(0)
+    await expect(app.transferRows).toHaveCount(1)
+    await expect(app.transferRows.first()).toContainText('₹4,000')
+  })
+
+  test('shows the settlement in the breakdown of how a figure was reached', async () => {
+    await app.settleUp({ amount: '1500' })
+    await app.personRow('Ganesh').getByRole('button', { name: 'How?' }).click()
+
+    const breakdown = app.dialog
+    await expect(breakdown).toContainText('Settled up with others')
+    await expect(breakdown).toContainText('₹1,500')
+    await expect(breakdown).toContainText('₹2,500')
+  })
+})

@@ -265,6 +265,21 @@ export const en = {
   undo: 'Undo',
   undoPaymentLabel: 'Undo payment of {amount}',
 
+  // Settling up between people
+  markSettled: 'Mark settled',
+  alreadySettled: 'Already settled',
+  // Past tense, unlike paysConnector above, because this row records
+  // something that has happened rather than something still to do.
+  paidConnector: 'paid',
+  settleUpTitle: 'Settle up',
+  settleUpSubtitle: '{from} → {to} · {amount} suggested',
+  amountHandedOver: 'Amount handed over',
+  settleAmountMissing: 'Enter how much was handed over.',
+  settleNote: 'Note (optional)',
+  settleNotePlaceholder: 'Cash, UPI…',
+  couldNotSaveSettlement: 'Could not save that settlement.',
+  undoSettlementLabel: 'Undo settlement of {amount}',
+
   // Cloud backup
   cloudSync: 'Cloud backup',
   cloudSyncOffBody:
@@ -307,6 +322,8 @@ export const en = {
   breakdownExpenseShare: 'Their share of the expenses',
   breakdownRevenueShare: 'Their share of the harvest',
   breakdownRevenueHeld: 'Harvest money they collected',
+  breakdownSettlementsPaid: 'Settled up with others',
+  breakdownSettlementsReceived: 'Received from others',
   breakdownGets: 'The group owes them',
   breakdownOwes: 'They owe the group',
   breakdownHoldingNote:
