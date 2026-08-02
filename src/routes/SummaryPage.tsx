@@ -12,6 +12,7 @@ import {
 import { computeOutstanding } from '../domain/payments'
 import { computeRevenue } from '../domain/revenue'
 import { RecordPaymentModal } from '../components/expenses/RecordPaymentModal'
+import { SettleUpModal } from '../components/summary/SettleUpModal'
 import { BalanceBreakdownModal } from '../components/summary/BalanceBreakdownModal'
 import { Button } from '../components/ui/Button'
 import { categoryLabel, getCategory } from '../domain/categories'
@@ -21,13 +22,15 @@ import { buildStatement } from '../lib/statement'
 import { downloadCsv, statementFilename, statementToCsv } from '../lib/csv'
 import { printStatement, statementToHtml } from '../lib/printStatement'
 import { intlLocale, useLanguage, useT } from '../i18n'
-import type { CategoryId, Expense, Member } from '../domain/types'
+import type { CategoryId, Expense, Member, Transfer } from '../domain/types'
 
 export function SummaryPage() {
   const { cropId } = useParams<{ cropId: string }>()
   const crops = useLedgerStore((s) => s.crops)
   const expenses = useLedgerStore((s) => s.expenses)
   const sales = useLedgerStore((s) => s.sales)
+  const settlements = useLedgerStore((s) => s.settlements)
+  const deleteSettlement = useLedgerStore((s) => s.deleteSettlement)
   const cropLoading = useLedgerStore((s) => s.cropLoading)
 
   const crop = crops.find((c) => c.id === cropId)
@@ -40,8 +43,8 @@ export function SummaryPage() {
   // One pass produces both the balances and the parts they are made of, so
   // the explanation shown on tap cannot disagree with the figure it explains.
   const breakdowns = useMemo(
-    () => explainBalances(members, expenses, sales),
-    [members, expenses, sales]
+    () => explainBalances(members, expenses, sales, settlements),
+    [members, expenses, sales, settlements]
   )
   const balances = useMemo(
     () => new Map([...breakdowns].map(([id, parts]) => [id, parts.balance])),
@@ -54,6 +57,7 @@ export function SummaryPage() {
     [members, sales, totals.total]
   )
   const [payingOff, setPayingOff] = useState<Expense | null>(null)
+  const [settling, setSettling] = useState<Transfer | null>(null)
   const [explaining, setExplaining] = useState<Member | null>(null)
   const [exportNotice, setExportNotice] = useState<string>()
   const t = useT()
@@ -67,7 +71,7 @@ export function SummaryPage() {
    */
   const statement = () =>
     crop
-      ? buildStatement({ crop, expenses, sales, t, locale })
+      ? buildStatement({ crop, expenses, sales, settlements, t, locale })
       : null
 
   // No await before window.open — Safari refuses a window opened after the
@@ -306,23 +310,32 @@ export function SummaryPage() {
             <ul className="space-y-2">
               {transfers.map((transfer) => (
                 <li key={`${transfer.from}-${transfer.to}`}>
-                  <Card className="flex items-center gap-3" data-testid="transfer-row">
-                    <Avatar initials={initials(memberName(transfer.from))} />
-                    <div className="flex-1 min-w-0 text-sm">
-                      <span className="font-medium text-[var(--ink)]">
-                        {memberName(transfer.from)}
-                      </span>
-                      <span className="text-[var(--muted)]">
-                        {' '}
-                        {t('paysConnector')}{' '}
-                      </span>
-                      <span className="font-medium text-[var(--ink)]">
-                        {memberName(transfer.to)}
+                  <Card data-testid="transfer-row">
+                    <div className="flex items-center gap-3">
+                      <Avatar initials={initials(memberName(transfer.from))} />
+                      <div className="flex-1 min-w-0 text-sm">
+                        <span className="font-medium text-[var(--ink)]">
+                          {memberName(transfer.from)}
+                        </span>
+                        <span className="text-[var(--muted)]">
+                          {' '}
+                          {t('paysConnector')}{' '}
+                        </span>
+                        <span className="font-medium text-[var(--ink)]">
+                          {memberName(transfer.to)}
+                        </span>
+                      </div>
+                      <span className="font-semibold text-[var(--ink)] tnum shrink-0">
+                        {formatINR(transfer.amount)}
                       </span>
                     </div>
-                    <span className="font-semibold text-[var(--ink)] tnum shrink-0">
-                      {formatINR(transfer.amount)}
-                    </span>
+                    <Button
+                      size="sm"
+                      className="mt-2.5"
+                      onClick={() => setSettling(transfer)}
+                    >
+                      {t('markSettled')}
+                    </Button>
                   </Card>
                 </li>
               ))}
@@ -335,6 +348,54 @@ export function SummaryPage() {
           </>
         )}
       </section>
+
+      {settlements.length > 0 ? (
+        <section>
+          <SectionTitle>{t('alreadySettled')}</SectionTitle>
+          <ul className="space-y-2">
+            {settlements.map((settlement) => (
+              <li key={settlement.id}>
+                <Card
+                  className="flex items-center gap-3"
+                  data-testid="settlement-row"
+                >
+                  <div className="flex-1 min-w-0 text-sm">
+                    <p className="text-[var(--ink)]">
+                      <span className="font-medium">
+                        {memberName(settlement.from)}
+                      </span>
+                      <span className="text-[var(--muted)]">
+                        {' '}
+                        {t('paidConnector')}{' '}
+                      </span>
+                      <span className="font-medium">
+                        {memberName(settlement.to)}
+                      </span>
+                    </p>
+                    <p className="text-xs text-[var(--faint)] truncate">
+                      {formatDate(settlement.date, locale)}
+                      {settlement.note ? ` · ${settlement.note}` : ''}
+                    </p>
+                  </div>
+                  <span className="font-semibold text-[var(--positive)] tnum shrink-0">
+                    {formatINR(settlement.amount)}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label={t('undoSettlementLabel', {
+                      amount: formatINR(settlement.amount),
+                    })}
+                    onClick={() => void deleteSettlement(settlement.id)}
+                    className="text-xs text-[var(--negative)] font-medium active:scale-95 transition-transform shrink-0"
+                  >
+                    {t('undo')}
+                  </button>
+                </Card>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <section>
         <SectionTitle>{t('eachPerson')}</SectionTitle>
@@ -465,6 +526,13 @@ export function SummaryPage() {
         expense={payingOff}
         members={members}
         onClose={() => setPayingOff(null)}
+      />
+
+      <SettleUpModal
+        transfer={settling}
+        cropId={cropId ?? ''}
+        members={members}
+        onClose={() => setSettling(null)}
       />
 
       <BalanceBreakdownModal

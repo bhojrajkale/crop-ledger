@@ -97,6 +97,9 @@ you a ledger that quietly stops balancing:
 - **Between members** — `computeBalances()` / `minimizeTransfers()`. Reflects
   only money that has *actually changed hands*. Each member is debited their
   share of what has been **paid**, never of what is still owed to a shop.
+  A `Settlement` clears this kind and only this kind: it is money one member
+  handed another, so it must never reach `computeOutstanding()` — the shop is
+  owed exactly what it was owed before two people squared up.
 - **Outside the group** — `computeOutstanding()` in `domain/payments.ts`.
   Everything unpaid, optionally grouped by `owedTo`.
 
@@ -117,7 +120,18 @@ play. Any change to expense, payment or sale handling must preserve that — it
 is the property the whole ledger rests on, and `settlement.test.ts` asserts it
 directly.
 
-`computeBalances(members, expenses, sales)` handles revenue in the same pass.
+`computeBalances(members, expenses, sales, settlements)` handles revenue and
+settling up in the same pass. A settlement is a symmetric ±amount pair — the
+payer credited, the receiver debited — so it preserves the zero-sum invariant
+by construction rather than by care. It is deliberately **not** clamped to what
+is owed: handing over more than the balance means the other member now owes the
+difference, and clamping would silently lose money that changed hands.
+`amountOutstanding()` clamps because a shop cannot owe you; a person can.
+
+**Every consumer of `computeBalances` must pass settlements.** `statement.ts`
+takes them as a *required* field for that reason — the printed sheet is the
+copy that gets handed over, and one that omitted them would tell two people to
+settle a debt they cleared last week.
 A sale is arithmetically an inverted expense: the member who collected the cash
 is debited the total, every member credited an equal share — so the collector
 becomes the one who owes everybody, which is the correct end state. Mixed units
@@ -311,7 +325,18 @@ and the cloud is frequently unreachable:
 
 The `sales` table exists in Dexie schema version 1 despite being unused, so
 adding revenue later needs no migration on devices that already hold data.
-Version 3 added `receipts`, purely additive.
+Version 3 added `receipts` and version 4 `settlements`, both purely additive.
+
+A backup written before settling up existed has no `settlements` key at all,
+and `parseBackup()` reads that as an empty list rather than refusing the file —
+those backups are somebody's only copy. A settlement that *is* present but
+missing a side is a damaged record and does fail the whole file, because a
+half-recorded one would shift a balance with nothing on screen to explain it.
+
+Removing a member is warned about by `countMemberEntries()`, which counts
+settlements as well as expenses — someone who never paid for anything but was
+handed money to square up still has history, and dropping one side of a
+transfer while the other survives is what breaks the zero-sum sum.
 
 **Never edit an existing `version(n).stores({...})` block** — devices holding
 data upgrade by replaying the versions they have not seen, so rewriting an old
