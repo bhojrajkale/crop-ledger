@@ -112,6 +112,14 @@ pay each other for money nobody has spent yet.
 negative debt or offset another expense, and `applyPayment()` trims a payment
 that would overshoot rather than storing it.
 
+`computeTotals().perHead` is the flat average — total divided by head count —
+and is **not** any member's share once a split is uneven. `sharesEqual` says
+whether the two agree, and the label on screen and on the printed sheet
+switches to "Average" when they do not. A tile reading "Per head ₹12,760" next
+to a people count, above two members owing ₹9,100 and ₹16,420, is a
+contradiction the reader has to resolve; that shipped, and was reported from a
+real ledger.
+
 ## Settlement invariant
 
 `computeBalances()` returns `paid − (share of what was paid)` per member.

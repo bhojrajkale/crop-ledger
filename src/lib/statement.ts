@@ -86,7 +86,12 @@ export function buildStatement({
 
   const headline: Statement['headline'] = [
     { label: t('totalSpent'), value: money(totals.total) },
-    { label: t('perHeadLabel'), value: money(totals.perHead) },
+    {
+      // Same distinction as the screen: an uneven split makes this an
+      // average, and the printed sheet is the copy people argue over.
+      label: totals.sharesEqual ? t('perHeadLabel') : t('averageLabel'),
+      value: money(totals.perHead),
+    },
   ]
   if (totals.outstanding > 0) {
     headline.push({ label: t('outstanding'), value: money(totals.outstanding) })

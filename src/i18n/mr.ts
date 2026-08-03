@@ -226,6 +226,7 @@ export const mr: Record<keyof typeof en, string> = {
   nothingToSummariseBody:
     'काही खर्च नोंदवल्यावर इथे एकूण रक्कम, दरडोई वाटा आणि कोणी कोणाला किती द्यायचे ते दिसेल.',
   perHeadLabel: 'दरडोई',
+  averageLabel: 'सरासरी',
   people: 'व्यक्ती',
   entries: 'नोंदी',
   paidOfTotal: '{paid} दिले · {outstanding} अजून द्यायचे',

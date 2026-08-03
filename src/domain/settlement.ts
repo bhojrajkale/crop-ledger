@@ -206,6 +206,18 @@ export interface CropTotals {
   /** The rest — still owed to shops and contractors. */
   outstanding: Paise
   perHead: Paise
+  /**
+   * Whether `perHead` is actually what each member owes, rather than just the
+   * average.
+   *
+   * False as soon as one expense is split unevenly, owed by a subset, or owed
+   * by nobody — all of which make the flat average a number that matches no
+   * member's real share. The label on screen depends on this: "per head" next
+   * to a people count reads as a promise about each person, and printing
+   * ₹12,760 there while the two members below owe ₹9,100 and ₹16,420 is a
+   * contradiction the reader has to resolve.
+   */
+  sharesEqual: boolean
   /** Total each member actually paid out of pocket. */
   paidByMember: Map<string, Paise>
   /** Total each member is responsible for, per the splits. */
@@ -251,15 +263,28 @@ export function computeTotals(
     }
   }
 
+  // The flat average across everyone on the crop. Deliberately not the same
+  // as owedByMember, which reflects the actual split of each expense — see
+  // sharesEqual, which says whether the two agree.
+  const perHead = members.length > 0 ? Math.round(total / members.length) : 0
+
+  // An equal split hands the remainder out a paisa at a time, so a member's
+  // share can sit one paisa off the average for each expense; perHead is
+  // rounded on top of that. A few paise apart is still "everyone owes the
+  // same", and reporting otherwise over a rounding artefact would be noise.
+  const tolerance = expenses.length + 1
+  const sharesEqual =
+    members.length > 0 &&
+    members.every(
+      (m) => Math.abs((owedByMember.get(m.id) ?? 0) - perHead) <= tolerance
+    )
+
   return {
     total,
     paid,
     outstanding: sum(expenses.map(amountOutstanding)),
-    // "Per head" is the flat average across everyone on the crop — what each
-    // member's share would be if every cost were shared equally. It is
-    // deliberately not the same as owedByMember, which reflects the actual
-    // split of each expense.
-    perHead: members.length > 0 ? Math.round(total / members.length) : 0,
+    perHead,
+    sharesEqual,
     paidByMember,
     owedByMember,
     byCategory,

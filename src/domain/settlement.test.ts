@@ -674,3 +674,85 @@ describe('countMemberEntries', () => {
     expect(countMemberEntries([], 'c', [settlement])).toBe(0)
   })
 })
+
+describe('sharesEqual', () => {
+  const pair: Member[] = [
+    { id: 'm1', name: 'Bhojraj' },
+    { id: 'm2', name: 'Ganesh' },
+  ]
+
+  it('is true when everything is split equally across everyone', () => {
+    const totals = computeTotals(pair, [
+      expense({ amount: toPaise(300), owedBy: ['m1', 'm2'] }),
+      expense({ id: 'e2', amount: toPaise(140), owedBy: ['m1', 'm2'] }),
+    ])
+    expect(totals.sharesEqual).toBe(true)
+    expect(totals.perHead).toBe(toPaise(220))
+  })
+
+  it('survives the odd paisa an equal split leaves behind', () => {
+    // splitEqually hands the remainder out one paisa at a time, so the two
+    // shares differ by one. That is still "everyone owes the same".
+    const totals = computeTotals(pair, [
+      expense({ amount: 10001, owedBy: ['m1', 'm2'] }),
+    ])
+    expect(totals.owedByMember.get('m1')).not.toBe(totals.owedByMember.get('m2'))
+    expect(totals.sharesEqual).toBe(true)
+  })
+
+  it('is false for the real ledger this was reported from', () => {
+    // ₹25,520 across two people, but the shares are ₹9,100 and ₹16,420 —
+    // so the ₹12,760 average is nobody's share, and must not be labelled
+    // "per head" next to a people count.
+    const totals = computeTotals(pair, [
+      expense({ id: 'e1', amount: toPaise(14000), owedBy: ['m1', 'm2'] }),
+      expense({ id: 'e2', amount: toPaise(7320), owedBy: ['m2'] }),
+      expense({ id: 'e3', amount: toPaise(4200), owedBy: ['m2'] }),
+    ])
+    expect(totals.total).toBe(toPaise(25520))
+    expect(totals.perHead).toBe(toPaise(12760))
+    expect(totals.owedByMember.get('m1')).toBe(toPaise(7000))
+    expect(totals.owedByMember.get('m2')).toBe(toPaise(18520))
+    expect(totals.sharesEqual).toBe(false)
+  })
+
+  it('is false when one expense is owed by a subset', () => {
+    const totals = computeTotals(pair, [
+      expense({ amount: toPaise(300), owedBy: ['m1'] }),
+    ])
+    expect(totals.sharesEqual).toBe(false)
+  })
+
+  it('is false for a custom split that is not even', () => {
+    const totals = computeTotals(pair, [
+      expense({
+        amount: toPaise(1000),
+        owedBy: ['m1', 'm2'],
+        splitAmounts: [
+          { memberId: 'm1', amount: toPaise(700) },
+          { memberId: 'm2', amount: toPaise(300) },
+        ],
+      }),
+    ])
+    expect(totals.sharesEqual).toBe(false)
+  })
+
+  it('is false when money was spent that nobody owes', () => {
+    // Every share is zero, which is "equal" in the loosest sense — but the
+    // average is not zero, so calling it per head would still be wrong.
+    const totals = computeTotals(pair, [
+      expense({ amount: toPaise(300), owedBy: [] }),
+    ])
+    expect(totals.sharesEqual).toBe(false)
+  })
+
+  it('is false with no members at all, rather than dividing by zero', () => {
+    expect(computeTotals([], []).sharesEqual).toBe(false)
+  })
+
+  it('is true for a crop with no expenses yet', () => {
+    const totals = computeTotals(pair, [])
+    expect(totals.perHead).toBe(0)
+    expect(totals.sharesEqual).toBe(true)
+  })
+})
