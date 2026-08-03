@@ -171,3 +171,39 @@ test.describe('settling up at the end of a season', () => {
     await expect(breakdown).toContainText('₹2,500')
   })
 })
+
+test.describe('the per-head figure', () => {
+  let app: App
+
+  test.beforeEach(async ({ page }) => {
+    app = new App(page)
+    await app.open()
+    await app.createCrop('Cotton', 'Kharif 2026')
+    await app.openCrop('Cotton')
+    await app.addPeople('Bhojraj', 'Ganesh')
+  })
+
+  test('says per head when everything really is split equally', async () => {
+    await app.addExpense({ amount: '8000', paidBy: 'Bhojraj' })
+    await app.goToTab('Summary')
+
+    await app.shows('Per head', '₹4,000')
+    await expect(app.personRow('Bhojraj')).toContainText('Share ₹4,000')
+    await expect(app.personRow('Ganesh')).toContainText('Share ₹4,000')
+  })
+
+  test('says average once a split is uneven', async () => {
+    // ₹14,000 shared, ₹7,320 and ₹4,200 owed by Ganesh alone. The average is
+    // ₹12,760, which is neither person's share — so it must not claim to be.
+    await app.addExpense({ amount: '14000', paidBy: 'Bhojraj' })
+    await app.addExpense({ amount: '7320', paidBy: 'Ganesh', owedBy: ['Ganesh'] })
+    await app.addExpense({ amount: '4200', paidBy: 'Ganesh', owedBy: ['Ganesh'] })
+    await app.goToTab('Summary')
+
+    await app.shows('₹25,520', 'Average', '₹12,760')
+    await app.doesNotShow('Per head')
+    // The figures it would otherwise have contradicted.
+    await expect(app.personRow('Bhojraj')).toContainText('Share ₹7,000')
+    await expect(app.personRow('Ganesh')).toContainText('Share ₹18,520')
+  })
+})

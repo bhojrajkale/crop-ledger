@@ -134,7 +134,12 @@ export function SummaryPage() {
         </p>
         <div className="flex gap-6 mt-3 pt-3 border-t border-[var(--hairline)]">
           <div>
-            <p className="text-xs text-[var(--faint)]">{t('perHeadLabel')}</p>
+            {/* Only called "per head" when it really is each person's share.
+                With an uneven split it is an average, and labelling it per
+                head contradicts the Share figures further down the page. */}
+            <p className="text-xs text-[var(--faint)]">
+              {totals.sharesEqual ? t('perHeadLabel') : t('averageLabel')}
+            </p>
             <p className="font-semibold text-[var(--ink)] tnum">
               {formatINR(totals.perHead)}
             </p>

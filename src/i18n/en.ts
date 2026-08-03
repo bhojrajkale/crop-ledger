@@ -224,6 +224,9 @@ export const en = {
   nothingToSummariseBody:
     "Once you've recorded some expenses, this shows the total, the per-head share, and who should pay whom.",
   perHeadLabel: 'Per head',
+  // Shown instead of "per head" when the splits are uneven, so the figure
+  // never claims to be somebody's actual share.
+  averageLabel: 'Average',
   people: 'People',
   entries: 'Entries',
   paidOfTotal: '{paid} paid · {outstanding} still to pay',
