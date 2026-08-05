@@ -146,10 +146,15 @@ export function SettingsPage() {
         <p className="text-sm text-[var(--muted)] mb-3">
           {t('exportBody', { crops: t('crops', { count: crops.length }) })}
         </p>
-        <div className="flex flex-wrap gap-2">
+        {/* Same as the summary's export pair: stacked full width on a phone
+            rather than wrapped, so the row cannot go ragged on whichever
+            language has the longer labels. */}
+        <div className="flex flex-col sm:flex-row gap-2">
           {canShare ? (
             <Button
               variant="primary"
+              fullWidth
+              className="sm:w-auto"
               disabled={busy}
               onClick={() => void runExport(share)}
             >
@@ -158,6 +163,8 @@ export function SettingsPage() {
           ) : null}
           <Button
             variant={canShare ? 'secondary' : 'primary'}
+            fullWidth
+            className="sm:w-auto"
             disabled={busy}
             onClick={() => void runExport(download)}
           >

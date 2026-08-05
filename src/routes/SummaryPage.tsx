@@ -167,6 +167,45 @@ export function SummaryPage() {
         ) : null}
       </Card>
 
+      <section>
+        <SectionTitle>{t('shareAccounts')}</SectionTitle>
+        <Card>
+          {/* Buttons before the explanation, and the section sits high on the
+              page rather than under every other one. Exporting was previously
+              the last thing on a screen that grows with the season, so it
+              meant scrolling past a crop's whole history to reach it. The
+              paragraph is worth reading once; the buttons are tapped every
+              time.
+
+              Stacked and full width on a phone, side by side from sm: up.
+              Wrapping content-width buttons instead left the layout at the
+              mercy of how long the labels happen to be in the current
+              language: they sat neatly in a row in Marathi and broke onto
+              two ragged lines in English. */}
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button
+              variant="primary"
+              fullWidth
+              className="sm:w-auto"
+              onClick={onPrint}
+            >
+              {t('printStatement')}
+            </Button>
+            <Button fullWidth className="sm:w-auto" onClick={onDownload}>
+              {t('downloadSpreadsheet')}
+            </Button>
+          </div>
+          <p className="text-sm text-[var(--muted)] mt-3">
+            {t('shareAccountsBody')}
+          </p>
+          {exportNotice ? (
+            <p role="status" className="text-sm text-[var(--muted)] mt-3">
+              {exportNotice}
+            </p>
+          ) : null}
+        </Card>
+      </section>
+
       {sales.length > 0 ? (
         <Card>
           <p className="text-xs uppercase tracking-wider text-[var(--faint)]">
@@ -504,26 +543,6 @@ export function SummaryPage() {
               </div>
             )
           })}
-        </Card>
-      </section>
-
-      <section>
-        <SectionTitle>{t('shareAccounts')}</SectionTitle>
-        <Card>
-          <p className="text-sm text-[var(--muted)] mb-3">
-            {t('shareAccountsBody')}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="primary" onClick={onPrint}>
-              {t('printStatement')}
-            </Button>
-            <Button onClick={onDownload}>{t('downloadSpreadsheet')}</Button>
-          </div>
-          {exportNotice ? (
-            <p role="status" className="text-sm text-[var(--muted)] mt-3">
-              {exportNotice}
-            </p>
-          ) : null}
         </Card>
       </section>
 

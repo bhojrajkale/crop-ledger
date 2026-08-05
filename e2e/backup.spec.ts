@@ -14,6 +14,25 @@ test.describe('exports, backup and language', () => {
     await app.addExpense({ amount: '8000', notes: 'seed', paidBy: 'Bhojraj' })
   })
 
+  test('keeps the export buttons reachable without scrolling', async ({ page }) => {
+    // They used to be the last thing on the page, under every other section,
+    // so a season's worth of entries meant scrolling past the lot to print a
+    // sheet. Asserted on a deliberately busy crop, since that is the case
+    // that made it a problem.
+    await app.addExpense({ amount: '7320', pay: { mode: 'credit' }, owedTo: 'Sharma Krishi Kendra' })
+    await app.addExpense({ amount: '4200', pay: { mode: 'credit' }, owedTo: 'Patil Tractors' })
+    await app.addExpense({ amount: '3000', paidBy: 'Ganesh' })
+    await app.addSale({ quantity: '18', rate: '2200', receivedBy: 'Ganesh' })
+    await app.goToTab('Summary')
+
+    await expect(
+      page.getByRole('button', { name: 'Print / Save as PDF' })
+    ).toBeInViewport()
+    await expect(
+      page.getByRole('button', { name: 'Download spreadsheet' })
+    ).toBeInViewport()
+  })
+
   test('downloads a spreadsheet of the season', async ({ page }) => {
     await app.goToTab('Summary')
     const [download] = await Promise.all([
