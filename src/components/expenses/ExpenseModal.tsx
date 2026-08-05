@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
-import { AmountField, Field, TextAreaField } from '../ui/Field'
+import { AmountField, DateField, Field, TextAreaField } from '../ui/Field'
 import { Chip } from '../ui/Chip'
 import { useLedgerStore } from '../../store/useLedgerStore'
 import { CATEGORIES } from '../../domain/categories'
@@ -657,9 +657,8 @@ export function ExpenseModal({
         ) : null}
 
         <div className="grid grid-cols-1 gap-4">
-          <Field
+          <DateField
             label={t('date')}
-            type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
           />

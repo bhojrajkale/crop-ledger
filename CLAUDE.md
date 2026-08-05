@@ -208,6 +208,16 @@ languages.
   locale, via `intlLocale()`, which appends `-u-nu-latn` so Marathi gets its
   month names with Latin digits — Devanagari digits would not match the figures
   printed on the shop's bill.
+- **A native date control writes its own text, and it is not ours to
+  translate.** `<input type="date">` renders from the *browser's* locale, not
+  the page's — `lang="mr"` does not reach it, and neither does anything else
+  we can set (verified with the page in Marathi and the browser locale forced
+  to `mr-IN`: still `08/05/2026`). The picker it opens is system UI and stays
+  in the device's language whatever we do. `DateField` therefore states the
+  date underneath in the app's own words, via `formatLongDate` +
+  `intlLocale()`, and only in Marathi — in English the control already agrees
+  and a second line is noise. Use `DateField`, never a bare
+  `<Field type="date">`.
 - The settlement row uses `paysConnector` between two names: "pays" in English,
   an arrow in Marathi, because Marathi needs postpositions on both names for a
   verb to read naturally. The section heading carries the meaning.
