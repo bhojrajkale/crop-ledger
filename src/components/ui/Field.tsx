@@ -1,5 +1,7 @@
 import { useId } from 'react'
 import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'react'
+import { intlLocale, useLanguage } from '../../i18n'
+import { formatLongDate } from '../../lib/format'
 
 const CONTROL =
   'w-full min-h-11 px-3 rounded-xl bg-[var(--surface-sunken)] text-[var(--ink)] ' +
@@ -52,6 +54,38 @@ export function Field({ label, error, hint, className = '', ...rest }: FieldProp
       ) : null}
     </div>
   )
+}
+
+/**
+ * A date input that also states the date in the app's own language.
+ *
+ * The text inside a native date control is drawn by the browser from the
+ * device's locale, not the page's. `lang="mr"` does not reach it and neither
+ * does anything else we can set — verified with the page in Marathi and the
+ * browser locale forced to mr-IN, which still rendered 08/05/2026. So a
+ * Marathi form on a phone set to English reads "6 Aug 2026", and the picker
+ * it opens is system UI that will stay in the device's language whatever we
+ * do.
+ *
+ * The line below the field is the app's own rendering, in the same form the
+ * summary and the printed sheet use — Marathi month names with Latin digits,
+ * so it matches the figures on the shop's bill.
+ *
+ * Only in Marathi: in English the control and the app already agree, and the
+ * line would be pure duplication on every form that takes a date.
+ */
+export function DateField({ value, hint, ...rest }: Omit<FieldProps, 'type'>) {
+  const language = useLanguage()
+  const date = typeof value === 'string' ? value : ''
+  const spelled =
+    language === 'mr' && date
+      ? // The long form, with the year: the native control shows one, and a
+        // hint that dropped it would read as contradicting the field.
+        formatLongDate(date, intlLocale(language))
+      : undefined
+  // A caller's own hint still shows when there is no date to spell out — the
+  // harvest date says "optional" until one is picked.
+  return <Field {...rest} type="date" value={value} hint={spelled ?? hint} />
 }
 
 interface TextAreaFieldProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {

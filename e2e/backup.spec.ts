@@ -77,6 +77,37 @@ test.describe('exports, backup and language', () => {
     await expect(app.expenseRow('seed')).toContainText('₹8,000')
   })
 
+  test('spells the date out in Marathi under the picker', async ({ page }) => {
+    // A native date control draws its own text from the device's locale, not
+    // the page's — lang="mr" does not reach it — so a Marathi form on an
+    // English phone shows "6 Aug 2026". The app states the date itself
+    // underneath, in the form the summary and the printed sheet use.
+    await page.goto('./settings')
+    await page.getByText('मराठी', { exact: true }).click()
+    await page.goto('./')
+    await page.getByTestId('crop-row').first().click()
+    await page.getByRole('button', { name: /\+ जोडा|पहिला खर्च/ }).first().click()
+
+    const form = app.dialog
+    await expect(form).toBeVisible()
+    await form.locator('input[type=date]').fill('2026-08-06')
+    await expect(form).toContainText('6 ऑग, 2026')
+  })
+
+  test('leaves the date alone in English, rather than repeating it', async ({
+    page,
+  }) => {
+    await page.goto('./')
+    await page.getByTestId('crop-row').first().click()
+    await page.getByRole('button', { name: /^\+ Add$|Add the first expense/ }).first().click()
+
+    const form = app.dialog
+    await expect(form).toBeVisible()
+    await form.locator('input[type=date]').fill('2026-08-06')
+    // The control already reads English here; a second line would be noise.
+    await expect(form).not.toContainText('6 Aug, 2026')
+  })
+
   test('switches to Marathi and back', async ({ page }) => {
     await page.goto('./settings')
     await page.getByText('मराठी', { exact: true }).click()

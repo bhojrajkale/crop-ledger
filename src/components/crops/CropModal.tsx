@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
-import { Field } from '../ui/Field'
+import { DateField, Field } from '../ui/Field'
 import { useLedgerStore } from '../../store/useLedgerStore'
 import { newId } from '../../lib/id'
 import { todayISO } from '../../lib/format'
@@ -119,15 +119,13 @@ export function CropModal({
           hint={t('seasonHint')}
         />
         <div className="grid grid-cols-2 gap-3">
-          <Field
+          <DateField
             label={t('sowingDate')}
-            type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
           />
-          <Field
+          <DateField
             label={t('harvestDate')}
-            type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
             hint={t('optional')}

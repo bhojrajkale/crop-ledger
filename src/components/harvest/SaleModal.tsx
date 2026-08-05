@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
-import { AmountField, Field } from '../ui/Field'
+import { AmountField, DateField, Field } from '../ui/Field'
 import { Chip } from '../ui/Chip'
 import { useLedgerStore } from '../../store/useLedgerStore'
 import { formatAmount, formatINR, parseRupees } from '../../domain/money'
@@ -190,9 +190,8 @@ export function SaleModal({
           onChange={(e) => setBuyer(e.target.value)}
         />
 
-        <Field
+        <DateField
           label={t('date')}
-          type="date"
           value={date}
           onChange={(e) => setDate(e.target.value)}
         />

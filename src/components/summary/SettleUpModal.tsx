@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
-import { AmountField, Field } from '../ui/Field'
+import { AmountField, DateField, Field } from '../ui/Field'
 import { useLedgerStore } from '../../store/useLedgerStore'
 import { formatAmount, formatINR, parseRupees } from '../../domain/money'
 import { newId } from '../../lib/id'
@@ -127,9 +127,8 @@ export function SettleUpModal({
             onChange={(e) => setAmountText(e.target.value)}
           />
 
-          <Field
+          <DateField
             label={t('date')}
-            type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
           />
