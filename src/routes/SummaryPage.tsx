@@ -508,11 +508,23 @@ export function SummaryPage() {
           <p className="text-sm text-[var(--muted)] mb-3">
             {t('shareAccountsBody')}
           </p>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="primary" onClick={onPrint}>
+          {/* Stacked and full width on a phone, side by side from sm: up.
+              Wrapping content-width buttons instead left the layout at the
+              mercy of how long the labels happen to be in the current
+              language: they sat neatly in a row in Marathi and broke onto
+              two ragged lines in English. */}
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button
+              variant="primary"
+              fullWidth
+              className="sm:w-auto"
+              onClick={onPrint}
+            >
               {t('printStatement')}
             </Button>
-            <Button onClick={onDownload}>{t('downloadSpreadsheet')}</Button>
+            <Button fullWidth className="sm:w-auto" onClick={onDownload}>
+              {t('downloadSpreadsheet')}
+            </Button>
           </div>
           {exportNotice ? (
             <p role="status" className="text-sm text-[var(--muted)] mt-3">
